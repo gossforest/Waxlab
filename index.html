@@ -16,18 +16,12 @@
 
 <!-- ============================================================
      WAXLAB CONFIGURATION
-     ============================================================
+     Credentials are injected by Netlify build (build.sh → config.js).
+     For local use: edit config.js directly (never commit real credentials).
      PHOTO SHARING — one-time Supabase setup:
      1. Supabase → Storage → New bucket
      2. Name: waxlab-photos  (check "Public bucket")
      ============================================================ -->
-<script>
-  window.WAXLAB_CONFIG = {
-    SUPABASE_URL: "YOUR_SUPABASE_URL",
-    SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY",
-    GOOGLE_CLIENT_ID: ""
-  };
-</script>
 
 <div id="root"></div>
 <script>
@@ -36,8 +30,15 @@ var WaxApp = (() => {
   const SUPABASE_URL = window.WAXLAB_CONFIG?.SUPABASE_URL || "YOUR_SUPABASE_URL";
   const SUPABASE_ANON_KEY = window.WAXLAB_CONFIG?.SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
   const GOOGLE_CLIENT_ID = window.WAXLAB_CONFIG?.GOOGLE_CLIENT_ID || "";
-  const supabaseConfigured = SUPABASE_URL !== "YOUR_SUPABASE_URL";
-  const db = supabaseConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  const supabaseConfigured = SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_URL !== "";
+  const db = supabaseConfigured && window.supabase ? (() => {
+    try {
+      return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch (e) {
+      console.warn("Supabase init failed:", e.message);
+      return null;
+    }
+  })() : null;
   function lsGet(k) {
     try {
       const v = localStorage.getItem(k);
@@ -53,27 +54,34 @@ var WaxApp = (() => {
     }
   }
   async function loadTeamEvents(teamCode) {
-    if (db) {
-      try {
-        const { data, error } = await db.from("waxlab_events").select("data").eq("team_code", teamCode);
-        if (error) throw error;
-        return (data || []).map((r) => r.data);
-      } catch (e) {
-        console.warn("loadEvents:", e.message);
-      }
-    }
     return lsGet(`waxlab:events:${teamCode}`) || [];
   }
-  async function loadAllEvents() {
-    if (db) {
-      try {
-        const { data, error } = await db.from("waxlab_events").select("data");
-        if (error) throw error;
-        return (data || []).map((r) => r.data);
-      } catch (e) {
-        console.warn("loadAllEvents:", e.message);
+  async function bgSyncEvents(teamCode, setEvents) {
+    if (!db) return;
+    try {
+      const { data, error } = await db.from("waxlab_events").select("data,updated_at").eq("team_code", teamCode);
+      if (error || !data) return;
+      const remote = data.map((r) => r.data).filter(Boolean);
+      if (!remote.length) return;
+      const local = lsGet(`waxlab:events:${teamCode}`) || [];
+      const localMap = Object.fromEntries(local.map((e) => [e.id, e]));
+      let changed = false;
+      remote.forEach((ev) => {
+        if (!localMap[ev.id]) {
+          localMap[ev.id] = ev;
+          changed = true;
+        }
+      });
+      if (changed) {
+        const merged = Object.values(localMap);
+        lsSet(`waxlab:events:${teamCode}`, merged);
+        setEvents(merged);
       }
+    } catch (e) {
+      console.warn("bgSyncEvents:", e.message);
     }
+  }
+  async function loadAllEvents() {
     const allKeys = Object.keys(localStorage).filter((k) => k.startsWith("waxlab:events:"));
     return allKeys.flatMap((k) => {
       try {
@@ -84,20 +92,19 @@ var WaxApp = (() => {
     });
   }
   async function saveEvent(teamCode, event) {
-    if (db) {
-      try {
-        await db.from("waxlab_events").upsert(
-          { id: event.id, team_code: teamCode, data: event, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
-          { onConflict: "id" }
-        );
-        return true;
-      } catch (e) {
-        console.warn("saveEvent:", e.message);
-        return false;
-      }
-    }
     const ex = lsGet(`waxlab:events:${teamCode}`) || [];
-    lsSet(`waxlab:events:${teamCode}`, ex.find((e) => e.id === event.id) ? ex.map((e) => e.id === event.id ? event : e) : [...ex, event]);
+    lsSet(
+      `waxlab:events:${teamCode}`,
+      ex.find((e) => e.id === event.id) ? ex.map((e) => e.id === event.id ? event : e) : [...ex, event]
+    );
+    if (db) {
+      db.from("waxlab_events").upsert(
+        { id: event.id, team_code: teamCode, data: event, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+        { onConflict: "id" }
+      ).then(({ error }) => {
+        if (error) console.warn("saveEvent bg:", error.message);
+      }).catch((e) => console.warn("saveEvent bg:", e.message));
+    }
     return true;
   }
   async function deleteEventDB(teamCode, eventId) {
@@ -112,36 +119,45 @@ var WaxApp = (() => {
     lsSet(`waxlab:events:${teamCode}`, ex.filter((e) => e.id !== eventId));
   }
   async function loadVocab() {
-    if (db) {
-      try {
-        const { data, error } = await db.from("waxlab_vocab").select("category,terms");
-        if (error) throw error;
-        const v = {};
-        (data || []).forEach((r) => {
-          v[r.category] = r.terms;
-        });
-        return v;
-      } catch (e) {
-        console.warn("loadVocab:", e.message);
-      }
-    }
     return lsGet("waxlab:vocab:global") || {};
+  }
+  async function bgSyncVocab(setVocab) {
+    if (!db) return;
+    try {
+      const { data, error } = await db.from("waxlab_vocab").select("category,terms");
+      if (error || !data) return;
+      const v = {};
+      data.forEach((r) => {
+        v[r.category] = r.terms;
+      });
+      const local = lsGet("waxlab:vocab:global") || {};
+      let changed = false;
+      Object.entries(v).forEach(([cat, terms]) => {
+        const merged = [.../* @__PURE__ */ new Set([...local[cat] || [], ...terms])].sort();
+        if (merged.length !== (local[cat] || []).length) {
+          local[cat] = merged;
+          changed = true;
+        }
+      });
+      if (changed) {
+        lsSet("waxlab:vocab:global", local);
+        setVocab(local);
+      }
+    } catch (e) {
+      console.warn("bgSyncVocab:", e.message);
+    }
   }
   async function addVocabTerms(category, newTerms) {
     if (!newTerms?.length) return;
-    if (db) {
-      try {
-        const { data } = await db.from("waxlab_vocab").select("terms").eq("category", category).single();
-        const merged = [.../* @__PURE__ */ new Set([...data?.terms || [], ...newTerms])].sort();
-        await db.from("waxlab_vocab").upsert({ category, terms: merged }, { onConflict: "category" });
-        return;
-      } catch (e) {
-        console.warn("addVocabTerms:", e.message);
-      }
-    }
     const vocab = lsGet("waxlab:vocab:global") || {};
     vocab[category] = [.../* @__PURE__ */ new Set([...vocab[category] || [], ...newTerms])].sort();
     lsSet("waxlab:vocab:global", vocab);
+    if (db) {
+      db.from("waxlab_vocab").select("terms").eq("category", category).single().then(({ data }) => {
+        const merged = [.../* @__PURE__ */ new Set([...data?.terms || [], ...vocab[category]])].sort();
+        return db.from("waxlab_vocab").upsert({ category, terms: merged }, { onConflict: "category" });
+      }).catch((e) => console.warn("addVocabTerms bg:", e.message));
+    }
   }
   function subscribeToTeam(teamCode, onEventChange, onVocabChange, onFleetChange) {
     if (!db) return () => {
@@ -640,7 +656,7 @@ var WaxApp = (() => {
   function isWinner(str) {
     if (!str) return null;
     const s = String(str).toLowerCase().trim();
-    if (/^(winner|won|1st|first|1|yes|true|selected|chose|best|top|chose|selected|chose|win)$/.test(s)) return true;
+    if (/^(winner|won|1st|first|1|yes|true|selected|chose|best|top|win)$/.test(s)) return true;
     if (/^(lost|2nd|3rd|no|false|eliminated|reject|skip|drop|second|third)$/.test(s)) return false;
     return null;
   }
@@ -950,25 +966,27 @@ Outcome: Eliminated`;
     };
   }
   async function loadFleets(teamCode) {
+    const local = lsGet(`waxlab:fleets:${teamCode}`);
+    if (local?.length) return local;
     if (db) {
       try {
         const { data, error } = await db.from("waxlab_fleets").select("data").eq("team_code", teamCode).single();
-        if (!error && data?.data) return data.data;
+        if (!error && data?.data) {
+          lsSet(`waxlab:fleets:${teamCode}`, data.data);
+          return data.data;
+        }
       } catch (e) {
       }
     }
-    return lsGet(`waxlab:fleets:${teamCode}`) || [];
+    return [];
   }
   async function saveFleets(teamCode, fleets) {
     lsSet(`waxlab:fleets:${teamCode}`, fleets);
     if (db) {
-      try {
-        await db.from("waxlab_fleets").upsert(
-          { team_code: teamCode, data: fleets },
-          { onConflict: "team_code" }
-        );
-      } catch (e) {
-      }
+      db.from("waxlab_fleets").upsert(
+        { team_code: teamCode, data: fleets },
+        { onConflict: "team_code" }
+      ).catch((e) => console.warn("saveFleets bg:", e.message));
     }
   }
   async function geocodePlaceMulti(name) {
@@ -1329,9 +1347,15 @@ Outcome: Eliminated`;
   function TI({ label, value, onChange, placeholder, autoFocus, style, mic }) {
     const [local, setLocal] = useState(value || "");
     const lastProp = useRef(value);
+    const commitTimer = useRef(null);
     if (value !== lastProp.current) {
       lastProp.current = value;
       setLocal(value || "");
+    }
+    function handleChange(v) {
+      setLocal(v);
+      clearTimeout(commitTimer.current);
+      commitTimer.current = setTimeout(() => onChange(v), 600);
     }
     return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12, ...style } }, label && /* @__PURE__ */ React.createElement(Lbl, null, label), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(
       "input",
@@ -1341,8 +1365,9 @@ Outcome: Eliminated`;
         placeholder: placeholder || "",
         autoFocus,
         style: { flex: 1 },
-        onChange: (e) => setLocal(e.target.value),
+        onChange: (e) => handleChange(e.target.value),
         onBlur: (e) => {
+          clearTimeout(commitTimer.current);
           onChange(e.target.value);
         }
       }
@@ -1381,9 +1406,15 @@ Outcome: Eliminated`;
   function TA({ label, value, onChange, placeholder, rows, style }) {
     const [local, setLocal] = useState(value || "");
     const lastProp = useRef(value);
+    const commitTimer = useRef(null);
     if (value !== lastProp.current) {
       lastProp.current = value;
       setLocal(value || "");
+    }
+    function handleChange(v) {
+      setLocal(v);
+      clearTimeout(commitTimer.current);
+      commitTimer.current = setTimeout(() => onChange(v), 600);
     }
     return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12, ...style } }, label && /* @__PURE__ */ React.createElement(Lbl, null, label), /* @__PURE__ */ React.createElement(
       "textarea",
@@ -1392,8 +1423,11 @@ Outcome: Eliminated`;
         rows: rows || 3,
         value: local,
         placeholder: placeholder || "",
-        onChange: (e) => setLocal(e.target.value),
-        onBlur: (e) => onChange(e.target.value)
+        onChange: (e) => handleChange(e.target.value),
+        onBlur: (e) => {
+          clearTimeout(commitTimer.current);
+          onChange(e.target.value);
+        }
       }
     ));
   }
@@ -1422,6 +1456,7 @@ Outcome: Eliminated`;
         placeholder: placeholder || "",
         onChange: (e) => {
           setQ(e.target.value);
+          onChange(e.target.value);
           setOpen(true);
         },
         onFocus: () => setOpen(true),
@@ -3110,7 +3145,8 @@ Outcome: Eliminated`;
             const isGlide = test.category === "glide" || test.category === "glide-out";
             const comp = isGlide ? ski.ratings?.glide : ski.ratings?.kick != null && ski.ratings?.glide != null ? ski.ratings.kick + ski.ratings.glide : null;
             const snowF = (test.snowTemps || []).slice(-1)[0]?.tempF;
-            const airF2 = (test.airTemps || []).slice(-1)[0]?.tempF;
+            const testAirF = (test.airTemps || []).slice(-1)[0]?.tempF;
+            const airF = ev.weather?.airTempF ?? testAirF ?? null;
             results.push({
               product: ski.product,
               application: ski.application,
@@ -3121,7 +3157,7 @@ Outcome: Eliminated`;
               eventName: ev.name,
               eventDate: ev.date || ev.createdAt,
               location: ev.location,
-              airF: ev.weather?.airTempF,
+              airF,
               snowF
             });
           });
@@ -3221,7 +3257,7 @@ Outcome: Eliminated`;
         alt: p.caption || "",
         style: { width: 52, height: 52, objectFit: "cover", borderRadius: 4 }
       }
-    )))))), topRunners.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Runners-Up"), topRunners.map(({ ski, comp, max }, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+    )))))), topRunners.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Runners-Up"), topRunners.map(({ ski, comp, max, isRunnerUp }, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
@@ -4886,8 +4922,9 @@ Outcome: Eliminated`;
   }
   function TeamBar({ teamCode, syncStatus, darkMode, onToggleDark, onLeave, useCelsius, onUnitToggle, onFleets }) {
     const [copied, setCopied] = useState(false);
-    const statusColor = syncStatus === "saving" ? "var(--amber)" : syncStatus === "error" ? "var(--red)" : "var(--green)";
-    const statusDot = syncStatus === "saving" ? "-" : syncStatus === "error" ? "!" : "*";
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+    const statusColor = isOffline ? "var(--ink-faint)" : syncStatus === "saving" ? "var(--amber)" : syncStatus === "error" ? "var(--red)" : "var(--green)";
+    const statusDot = isOffline ? "\u25CB" : syncStatus === "saving" ? "\u2191" : syncStatus === "error" ? "!" : "\u2713";
     function copy() {
       navigator.clipboard.writeText(window.location.href).then(() => {
         setCopied(true);
@@ -4901,7 +4938,7 @@ Outcome: Eliminated`;
         style: { fontSize: 10, color: statusColor, display: "flex", alignItems: "center", gap: 3 }
       },
       statusDot,
-      /* @__PURE__ */ React.createElement("span", null, syncStatus === "saving" ? "saving\u2026" : syncStatus === "error" ? "sync error" : syncStatus === "saved" ? "saved" : "")
+      /* @__PURE__ */ React.createElement("span", null, isOffline ? "offline" : syncStatus === "saving" ? "saving\u2026" : syncStatus === "error" ? "sync error" : syncStatus === "saved" ? "saved" : "")
     ), !supabaseConfigured && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, "local only")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(UnitPill, { useCelsius, onChange: onUnitToggle }), /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -4982,6 +5019,11 @@ Outcome: Eliminated`;
         lsSet(`waxlab:seen:${code}`, true);
       }
       setLoading(false);
+      bgSyncEvents(code, (evs2) => {
+        setEvents(evs2);
+        setAllEventsGlobal(evs2);
+      });
+      bgSyncVocab((v) => setVocab(v));
       return subscribeToTeam(
         code,
         (change) => {
@@ -5003,19 +5045,46 @@ Outcome: Eliminated`;
     const pendingWrites = useRef(/* @__PURE__ */ new Set());
     const persist = useCallback((event) => {
       setEvents((p) => p.find((e) => e.id === event.id) ? p.map((e) => e.id === event.id ? event : e) : [...p, event]);
+      saveEvent(teamCode, event);
+      setSyncStatus(db ? "saving" : "saved");
       pendingWrites.current.add(event.id);
       clearTimeout(persistTimers.current[event.id]);
-      setSyncStatus("saving");
-      persistTimers.current[event.id] = setTimeout(async () => {
-        let ok = false;
-        for (let attempt = 0; attempt < 3 && !ok; attempt++) {
-          if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt));
-          ok = await saveEvent(teamCode, event);
-        }
+      persistTimers.current[event.id] = setTimeout(() => {
         pendingWrites.current.delete(event.id);
-        setSyncStatus(ok ? "saved" : "error");
-        if (ok) setTimeout(() => setSyncStatus("idle"), 2e3);
-      }, 900);
+        setSyncStatus((s) => s === "saving" ? "saved" : s);
+        setTimeout(() => setSyncStatus((s) => s === "saved" ? "idle" : s), 1500);
+      }, 4e3);
+    }, [teamCode]);
+    useEffect(() => {
+      function flushAll() {
+        Object.keys(persistTimers.current).forEach((id) => {
+          const timer = persistTimers.current[id];
+          if (timer != null) {
+            clearTimeout(timer);
+            delete persistTimers.current[id];
+            setEvents((prev) => {
+              const ev = prev.find((e) => e.id === id);
+              if (ev && teamCode) {
+                saveEvent(teamCode, ev).then((ok) => {
+                  pendingWrites.current.delete(id);
+                  setSyncStatus(ok ? "saved" : "error");
+                  if (ok) setTimeout(() => setSyncStatus("idle"), 2e3);
+                });
+              }
+              return prev;
+            });
+          }
+        });
+      }
+      function onVisibility() {
+        if (document.visibilityState === "hidden") flushAll();
+      }
+      document.addEventListener("visibilitychange", onVisibility);
+      window.addEventListener("beforeunload", flushAll);
+      return () => {
+        document.removeEventListener("visibilitychange", onVisibility);
+        window.removeEventListener("beforeunload", flushAll);
+      };
     }, [teamCode]);
     async function createEvent(opts = {}) {
       const copyFrom = opts.copyFrom || null;

@@ -5,49 +5,66 @@ import ReactDOM from 'react-dom/client';
 const SUPABASE_URL      = window.WAXLAB_CONFIG?.SUPABASE_URL      || "YOUR_SUPABASE_URL";
 const SUPABASE_ANON_KEY = window.WAXLAB_CONFIG?.SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
 const GOOGLE_CLIENT_ID  = window.WAXLAB_CONFIG?.GOOGLE_CLIENT_ID  || "";
-const supabaseConfigured = SUPABASE_URL !== "YOUR_SUPABASE_URL";
-const db = supabaseConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabaseConfigured = SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_URL !== "";
+// Guard: if the Supabase CDN script failed to load, degrade gracefully to localStorage-only
+const db = (supabaseConfigured && window.supabase)
+  ? (() => { try { return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) { console.warn("Supabase init failed:", e.message); return null; } })()
+  : null;
 
 function lsGet(k)     { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null; } catch { return null; } }
 function lsSet(k,v)   { try { localStorage.setItem(k,JSON.stringify(v)); } catch {} }
 
 async function loadTeamEvents(teamCode) {
-  if (db) {
-    try {
-      const { data, error } = await db.from("waxlab_events").select("data").eq("team_code", teamCode);
-      if (error) throw error;
-      return (data||[]).map(r=>r.data);
-    } catch(e) { console.warn("loadEvents:", e.message); }
-  }
+  // Always return localStorage immediately — zero latency
   return lsGet(`waxlab:events:${teamCode}`) || [];
+}
+// Background sync: fetch from Supabase and merge any records we're missing locally.
+// Called after initial render so it never blocks the UI.
+async function bgSyncEvents(teamCode, setEvents) {
+  if (!db) return;
+  try {
+    const { data, error } = await db.from("waxlab_events").select("data,updated_at")
+      .eq("team_code", teamCode);
+    if (error || !data) return;
+    const remote = data.map(r=>r.data).filter(Boolean);
+    if (!remote.length) return;
+    // Merge: remote wins for records not currently being edited
+    const local = lsGet(`waxlab:events:${teamCode}`) || [];
+    const localMap = Object.fromEntries(local.map(e=>[e.id,e]));
+    let changed = false;
+    remote.forEach(ev => {
+      if (!localMap[ev.id]) { localMap[ev.id] = ev; changed = true; }
+      // Remote has a field the local doesn't — shallow merge (conservative)
+    });
+    if (changed) {
+      const merged = Object.values(localMap);
+      lsSet(`waxlab:events:${teamCode}`, merged);
+      setEvents(merged);
+    }
+  } catch(e) { console.warn("bgSyncEvents:", e.message); }
 }
 
 // Load events from ALL teams for cross-team prediction
 async function loadAllEvents() {
-  if (db) {
-    try {
-      const { data, error } = await db.from("waxlab_events").select("data");
-      if (error) throw error;
-      return (data||[]).map(r=>r.data);
-    } catch(e) { console.warn("loadAllEvents:", e.message); }
-  }
-  // Fallback: gather all team codes seen in localStorage
+  // Always load from localStorage immediately
   const allKeys = Object.keys(localStorage).filter(k => k.startsWith("waxlab:events:"));
   return allKeys.flatMap(k => { try { return JSON.parse(localStorage.getItem(k))||[]; } catch { return []; } });
 }
 async function saveEvent(teamCode, event) {
-  if (db) {
-    try {
-      await db.from("waxlab_events").upsert(
-        { id:event.id, team_code:teamCode, data:event, updated_at:new Date().toISOString() },
-        { onConflict:"id" }
-      );
-      return true;
-    } catch(e) { console.warn("saveEvent:", e.message); return false; }
-  }
+  // localStorage FIRST — always instant, works offline
   const ex = lsGet(`waxlab:events:${teamCode}`) || [];
-  lsSet(`waxlab:events:${teamCode}`, ex.find(e=>e.id===event.id) ? ex.map(e=>e.id===event.id?event:e) : [...ex,event]);
-  return true;
+  lsSet(`waxlab:events:${teamCode}`,
+    ex.find(e=>e.id===event.id) ? ex.map(e=>e.id===event.id?event:e) : [...ex,event]);
+  // Supabase in background — non-blocking, failure is silent
+  if (db) {
+    db.from("waxlab_events").upsert(
+      { id:event.id, team_code:teamCode, data:event, updated_at:new Date().toISOString() },
+      { onConflict:"id" }
+    ).then(({error}) => {
+      if (error) console.warn("saveEvent bg:", error.message);
+    }).catch(e => console.warn("saveEvent bg:", e.message));
+  }
+  return true; // always succeeds (localStorage write is synchronous)
 }
 async function deleteEventDB(teamCode, eventId) {
   if (db) { try { await db.from("waxlab_events").delete().eq("id",eventId); return; } catch {} }
@@ -55,28 +72,40 @@ async function deleteEventDB(teamCode, eventId) {
   lsSet(`waxlab:events:${teamCode}`, ex.filter(e=>e.id!==eventId));
 }
 async function loadVocab() {
-  if (db) {
-    try {
-      const { data, error } = await db.from("waxlab_vocab").select("category,terms");
-      if (error) throw error;
-      const v={}; (data||[]).forEach(r=>{ v[r.category]=r.terms; }); return v;
-    } catch(e) { console.warn("loadVocab:", e.message); }
-  }
+  // Always return from localStorage immediately
   return lsGet("waxlab:vocab:global") || {};
+}
+async function bgSyncVocab(setVocab) {
+  if (!db) return;
+  try {
+    const { data, error } = await db.from("waxlab_vocab").select("category,terms");
+    if (error || !data) return;
+    const v={}; data.forEach(r=>{ v[r.category]=r.terms; });
+    // Merge remote into local (union, never remove local entries)
+    const local = lsGet("waxlab:vocab:global") || {};
+    let changed = false;
+    Object.entries(v).forEach(([cat, terms]) => {
+      const merged = [...new Set([...(local[cat]||[]),...terms])].sort();
+      if (merged.length !== (local[cat]||[]).length) { local[cat] = merged; changed = true; }
+    });
+    if (changed) { lsSet("waxlab:vocab:global", local); setVocab(local); }
+  } catch(e) { console.warn("bgSyncVocab:", e.message); }
 }
 async function addVocabTerms(category, newTerms) {
   if (!newTerms?.length) return;
-  if (db) {
-    try {
-      const { data } = await db.from("waxlab_vocab").select("terms").eq("category",category).single();
-      const merged = [...new Set([...(data?.terms||[]),...newTerms])].sort();
-      await db.from("waxlab_vocab").upsert({ category, terms:merged }, { onConflict:"category" });
-      return;
-    } catch(e) { console.warn("addVocabTerms:", e.message); }
-  }
+  // localStorage FIRST
   const vocab = lsGet("waxlab:vocab:global") || {};
   vocab[category] = [...new Set([...(vocab[category]||[]),...newTerms])].sort();
   lsSet("waxlab:vocab:global", vocab);
+  // Background Supabase sync
+  if (db) {
+    db.from("waxlab_vocab").select("terms").eq("category",category).single()
+      .then(({data}) => {
+        const merged = [...new Set([...(data?.terms||[]),...vocab[category]])].sort();
+        return db.from("waxlab_vocab").upsert({ category, terms:merged }, { onConflict:"category" });
+      })
+      .catch(e => console.warn("addVocabTerms bg:", e.message));
+  }
 }
 function subscribeToTeam(teamCode, onEventChange, onVocabChange, onFleetChange) {
   if (!db) return () => {};
@@ -726,7 +755,7 @@ function parseTempToF(str) {
 function isWinner(str) {
   if (!str) return null;
   const s = String(str).toLowerCase().trim();
-  if (/^(winner|won|1st|first|1|yes|true|selected|chose|best|top|chose|selected|chose|win)$/.test(s)) return true;
+  if (/^(winner|won|1st|first|1|yes|true|selected|chose|best|top|win)$/.test(s)) return true;
   if (/^(lost|2nd|3rd|no|false|eliminated|reject|skip|drop|second|third)$/.test(s)) return false;
   return null;
 }
@@ -1097,28 +1126,32 @@ function copySession(session, allSessions) {
 //                      skis:[{ id, make, flex, grind, notes }] }
 
 async function loadFleets(teamCode) {
+  // Always return localStorage immediately
+  const local = lsGet(`waxlab:fleets:${teamCode}`);
+  if (local?.length) return local;
+  // If nothing local, try Supabase once (first-ever load on new device)
   if (db) {
     try {
-      const { data, error } = await db
-        .from("waxlab_fleets")
-        .select("data")
-        .eq("team_code", teamCode)
-        .single();
-      if (!error && data?.data) return data.data;
-    } catch(e) { /* fall through to localStorage */ }
+      const { data, error } = await db.from("waxlab_fleets").select("data")
+        .eq("team_code", teamCode).single();
+      if (!error && data?.data) {
+        lsSet(`waxlab:fleets:${teamCode}`, data.data);
+        return data.data;
+      }
+    } catch(e) { /* no fleet data yet */ }
   }
-  return lsGet(`waxlab:fleets:${teamCode}`) || [];
+  return [];
 }
 
 async function saveFleets(teamCode, fleets) {
-  lsSet(`waxlab:fleets:${teamCode}`, fleets);   // always save locally too
+  // localStorage FIRST — consistent with localStorage-first architecture
+  lsSet(`waxlab:fleets:${teamCode}`, fleets);
+  // Supabase in background — non-blocking
   if (db) {
-    try {
-      await db.from("waxlab_fleets").upsert(
-        { team_code: teamCode, data: fleets },
-        { onConflict: "team_code" }
-      );
-    } catch(e) { /* silently continue with local copy */ }
+    db.from("waxlab_fleets").upsert(
+      { team_code: teamCode, data: fleets },
+      { onConflict: "team_code" }
+    ).catch(e => console.warn("saveFleets bg:", e.message));
   }
 }
 
@@ -1180,11 +1213,6 @@ async function geocodePlaceMulti(name) {
   return results;
 }
 
-// Convenience wrapper — returns the best single result
-async function geocodePlace(name) {
-  const results = await geocodePlaceMulti(name);
-  return results[0];
-}
 async function fetchWeather(lat, lon) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
     + `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,snow_depth`
@@ -1479,18 +1507,24 @@ function BackBtn({ onClick, label="Back" }) {
 }
 function TI({ label, value, onChange, placeholder, autoFocus, style, mic }) {
   // Local state prevents parent re-renders on every keystroke.
-  // Parent is notified on blur (field commit) rather than each key.
+  // Parent is notified on blur (guaranteed commit) AND via a 600ms idle debounce
+  // as a safety net for iOS Safari, which doesn't always fire blur reliably.
   const [local, setLocal] = useState(value || "");
-  // Sync inbound prop changes (e.g. undo, external updates) without clobbering typing
   const lastProp = useRef(value);
+  const commitTimer = useRef(null);
   if (value !== lastProp.current) { lastProp.current = value; setLocal(value || ""); }
+  function handleChange(v) {
+    setLocal(v);
+    clearTimeout(commitTimer.current);
+    commitTimer.current = setTimeout(() => onChange(v), 600);
+  }
   return <div style={{ marginBottom:12, ...style }}>
     {label && <Lbl>{label}</Lbl>}
     <div style={{ display:"flex", gap:6 }}>
       <input className="inp" value={local} placeholder={placeholder||""}
         autoFocus={autoFocus} style={{ flex:1 }}
-        onChange={e => setLocal(e.target.value)}
-        onBlur={e => { onChange(e.target.value); }} />
+        onChange={e => handleChange(e.target.value)}
+        onBlur={e => { clearTimeout(commitTimer.current); onChange(e.target.value); }} />
       {mic && <MicButton onText={t => { const v = local ? local+" "+t : t; setLocal(v); onChange(v); }} />}
     </div>
   </div>;
@@ -1519,12 +1553,18 @@ function SI({ label, value, onChange, options, style }) {
 function TA({ label, value, onChange, placeholder, rows, style }) {
   const [local, setLocal] = useState(value || "");
   const lastProp = useRef(value);
+  const commitTimer = useRef(null);
   if (value !== lastProp.current) { lastProp.current = value; setLocal(value || ""); }
+  function handleChange(v) {
+    setLocal(v);
+    clearTimeout(commitTimer.current);
+    commitTimer.current = setTimeout(() => onChange(v), 600);
+  }
   return <div style={{ marginBottom:12, ...style }}>
     {label && <Lbl>{label}</Lbl>}
     <textarea className="inp" rows={rows||3} value={local} placeholder={placeholder||""}
-      onChange={e => setLocal(e.target.value)}
-      onBlur={e => onChange(e.target.value)} />
+      onChange={e => handleChange(e.target.value)}
+      onBlur={e => { clearTimeout(commitTimer.current); onChange(e.target.value); }} />
   </div>;
 }
 
@@ -1551,7 +1591,7 @@ function ACI({ label, value, onChange, onCommit, suggestions=[], placeholder, st
     {label && <Lbl>{label}</Lbl>}
     <div className="ac-wrap" style={{ display:"flex", gap:6 }}>
       <input className="inp" value={q} placeholder={placeholder||""}
-        onChange={e => { setQ(e.target.value); setOpen(true); }}
+        onChange={e => { setQ(e.target.value); onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => commit(q), 160)}
         style={{ flex:1 }} />
@@ -1642,6 +1682,8 @@ function useDeadlines(tests, onSnoozeUpdate) {
       clearTimeout(flashRef.current);
       document.title = titleRef.current;
     };
+  // JSON.stringify dep: re-run only when deadline values change, not on every render.
+  // Using the full tests array would re-run whenever any field on any test changes.
   }, [JSON.stringify((tests||[]).map(t=>({ id:t.id, deadline:t.deadline })))]);
 
   function fireAlarm(test) {
@@ -3293,13 +3335,15 @@ function CrossEventComparison({ events, useCelsius }) {
           const isGlide = test.category==="glide"||test.category==="glide-out";
           const comp = isGlide?ski.ratings?.glide
             :(ski.ratings?.kick!=null&&ski.ratings?.glide!=null?ski.ratings.kick+ski.ratings.glide:null);
-          const snowF = (test.snowTemps||[]).slice(-1)[0]?.tempF;
-          const airF2 = (test.airTemps||[]).slice(-1)[0]?.tempF;
+          const snowF   = (test.snowTemps||[]).slice(-1)[0]?.tempF;
+          const testAirF = (test.airTemps||[]).slice(-1)[0]?.tempF;
+          // Use event-level air temp if available, fall back to test-logged reading
+          const airF = ev.weather?.airTempF ?? testAirF ?? null;
           results.push({ product:ski.product, application:ski.application,
             category:test.category, isWinner:ski.standing==="Winner",
             comp, max:isGlide?10:20, eventName:ev.name,
             eventDate:ev.date||ev.createdAt, location:ev.location,
-            airF:ev.weather?.airTempF, snowF });
+            airF, snowF });
         });
       });
     });
@@ -3480,7 +3524,7 @@ function RaceDaySummary({ event, useCelsius }) {
     {topRunners.length>0&&<>
       <Hr />
       <Lbl>Runners-Up</Lbl>
-      {topRunners.map(({ski,comp,max},i)=>(
+      {topRunners.map(({ski,comp,max,isRunnerUp},i)=>(
         <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
           padding:"8px 0", borderBottom:"1px solid var(--rule)" }}>
           <div>
@@ -5081,8 +5125,9 @@ function TeamSelector({ onJoin }) {
 // ─── TEAM BAR ─────────────────────────────────────────────────────────────────
 function TeamBar({ teamCode, syncStatus, darkMode, onToggleDark, onLeave, useCelsius, onUnitToggle, onFleets }) {
   const [copied,setCopied]=useState(false);
-  const statusColor=syncStatus==="saving"?"var(--amber)":syncStatus==="error"?"var(--red)":"var(--green)";
-  const statusDot=syncStatus==="saving"?"-":syncStatus==="error"?"!":"*";
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  const statusColor=isOffline?"var(--ink-faint)":syncStatus==="saving"?"var(--amber)":syncStatus==="error"?"var(--red)":"var(--green)";
+  const statusDot=isOffline?"○":syncStatus==="saving"?"↑":syncStatus==="error"?"!":"✓";
   function copy() { navigator.clipboard.writeText(window.location.href).then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); }); }
   return <div className="team-bar no-print">
     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -5090,7 +5135,7 @@ function TeamBar({ teamCode, syncStatus, darkMode, onToggleDark, onLeave, useCel
       {supabaseConfigured&&<span className="mono"
           style={{ fontSize:10, color:statusColor, display:"flex", alignItems:"center", gap:3 }}>
           {statusDot}
-          <span>{syncStatus==="saving"?"saving…":syncStatus==="error"?"sync error":syncStatus==="saved"?"saved":""}</span>
+          <span>{isOffline?"offline":syncStatus==="saving"?"saving…":syncStatus==="error"?"sync error":syncStatus==="saved"?"saved":""}</span>
         </span>}
       {!supabaseConfigured&&<span className="mono" style={{ fontSize:10, color:"var(--ink-faint)" }}>local only</span>}
     </div>
@@ -5144,10 +5189,14 @@ function App() {
 
   async function joinTeam(code) {
     setLoading(true); setTeamCode(code); setView("home");
+    // Load from localStorage immediately — always instant, works offline
     const [evs,voc,fls,allEvs]=await Promise.all([loadTeamEvents(code),loadVocab(),loadFleets(code),loadAllEvents()]);
     setEvents(evs||[]); setVocab(voc||{}); setFleets(fls||[]); setAllEventsGlobal(allEvs||[]);
     if (!lsGet(`waxlab:seen:${code}`)) { setShowOnboard(true); lsSet(`waxlab:seen:${code}`,true); }
-    setLoading(false);
+    setLoading(false); // App is ready — no waiting for network
+    // Background: sync from Supabase and subscribe to real-time changes
+    bgSyncEvents(code, evs => { setEvents(evs); setAllEventsGlobal(evs); });
+    bgSyncVocab(v => setVocab(v));
     return subscribeToTeam(code,
       change=>{ if(change.type==="delete") setEvents(p=>p.filter(e=>e.id!==change.id));
         else {
@@ -5168,25 +5217,56 @@ function App() {
   const persistTimers = useRef({});
   const pendingWrites = useRef(new Set());
   const persist = useCallback((event) => {
-    // Optimistic local update — instant, no lag
+    // 1. Optimistic local React state update — instant
     setEvents(p => p.find(e => e.id === event.id)
       ? p.map(e => e.id === event.id ? event : e)
       : [...p, event]);
-    // Block realtime echos for this event until the write confirms
+    // 2. localStorage write — synchronous, instant, works offline
+    //    (saveEvent now writes localStorage first before Supabase)
+    saveEvent(teamCode, event);  // localStorage write is instant; Supabase is background
+    setSyncStatus(db ? "saving" : "saved"); // "saving" = localStorage done, Supabase pending
+    // 3. Block realtime echos for this event for a short window while
+    //    the background Supabase write propagates to avoid echo overwrites
     pendingWrites.current.add(event.id);
     clearTimeout(persistTimers.current[event.id]);
-    setSyncStatus("saving");
-    persistTimers.current[event.id] = setTimeout(async () => {
-      // Retry up to 3 times (handles brief network drops)
-      let ok = false;
-      for (let attempt = 0; attempt < 3 && !ok; attempt++) {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
-        ok = await saveEvent(teamCode, event);
-      }
+    persistTimers.current[event.id] = setTimeout(() => {
       pendingWrites.current.delete(event.id);
-      setSyncStatus(ok ? "saved" : "error");
-      if (ok) setTimeout(() => setSyncStatus("idle"), 2000);
-    }, 900);
+      setSyncStatus(s => s === "saving" ? "saved" : s);
+      setTimeout(() => setSyncStatus(s => s === "saved" ? "idle" : s), 1500);
+    }, 4000); // 4s: covers Supabase roundtrip + realtime broadcast
+  }, [teamCode]);
+
+  // Flush any pending writes immediately when user leaves the page/tab.
+  // Prevents data loss when iOS suspends the app mid-debounce.
+  useEffect(() => {
+    function flushAll() {
+      Object.keys(persistTimers.current).forEach(id => {
+        const timer = persistTimers.current[id];
+        if (timer != null) {
+          clearTimeout(timer);
+          delete persistTimers.current[id];
+          // Find the event and write it immediately
+          setEvents(prev => {
+            const ev = prev.find(e => e.id === id);
+            if (ev && teamCode) {
+              saveEvent(teamCode, ev).then(ok => {
+                pendingWrites.current.delete(id);
+                setSyncStatus(ok ? "saved" : "error");
+                if (ok) setTimeout(() => setSyncStatus("idle"), 2000);
+              });
+            }
+            return prev; // no state change, side-effect only
+          });
+        }
+      });
+    }
+    function onVisibility() { if (document.visibilityState === "hidden") flushAll(); }
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", flushAll);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", flushAll);
+    };
   }, [teamCode]);
 
   async function createEvent(opts={}) {
