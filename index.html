@@ -387,7 +387,42 @@ var WaxApp = (() => {
       marginTop: 8,
       fontWeight: 600,
       color: msg.startsWith("\u2713") ? "var(--green)" : "var(--red)"
-    } }, msg));
+    } }, msg), /* @__PURE__ */ React.createElement("div", { style: {
+      marginTop: 20,
+      paddingTop: 16,
+      borderTop: "1px solid var(--rule)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6
+    } }, /* @__PURE__ */ React.createElement(
+      "svg",
+      {
+        width: "13",
+        height: "13",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "var(--ink-faint)",
+        strokeWidth: "2",
+        strokeLinecap: "round",
+        strokeLinejoin: "round"
+      },
+      /* @__PURE__ */ React.createElement("rect", { x: "2", y: "4", width: "20", height: "16", rx: "2" }),
+      /* @__PURE__ */ React.createElement("path", { d: "m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" })
+    ), /* @__PURE__ */ React.createElement(
+      "a",
+      {
+        href: "mailto:gossforest@gmail.com",
+        style: {
+          fontSize: 12,
+          color: "var(--ink-faint)",
+          textDecoration: "none",
+          fontFamily: "inherit",
+          letterSpacing: "0.01em"
+        }
+      },
+      "gossforest@gmail.com"
+    )));
   }
   function SyncStatusBanner({ syncStatus, online, pendingCount }) {
     if (!online) return /* @__PURE__ */ React.createElement("div", { style: {
