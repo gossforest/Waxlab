@@ -4584,7 +4584,18 @@ Outcome: Eliminated`;
         onClick: () => setTab(t.id)
       },
       t.label
-    ))), /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, tab === "tests" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(TI, { label: "Session Name", value: session.name, onChange: (v) => upd({ name: v }), mic: true }), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: session.notes, onChange: (v) => upd({ notes: v }), rows: 2 }), /* @__PURE__ */ React.createElement(Hr, null), (session.tests || []).map((test) => {
+    ))), /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, tab === "tests" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(TI, { label: "Session Name", value: session.name, onChange: (v) => upd({ name: v }), mic: true }), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: session.notes, onChange: (v) => upd({ notes: v }), rows: 2 }), /* @__PURE__ */ React.createElement(
+      GuidanceBanner,
+      {
+        storageKey: "waxlab:guide:tests",
+        title: "What is a Test?",
+        lines: [
+          "A Test compares a set of skis against each other \u2014 for example, 4 pairs with different paraffin topcoats.",
+          "Glide and kick tests use a head-to-head tournament: advance or eliminate skis until one winner emerges. Glide Out tests measure exact glide distance side-by-side.",
+          "You can run multiple Tests at the same time within a Session. Assign testers to each Test so you know who ran what."
+        ]
+      }
+    ), /* @__PURE__ */ React.createElement(Hr, null), (session.tests || []).map((test) => {
       const winner = test.skis?.find((s) => s.standing === "Winner");
       const active = test.skis?.filter((s) => s.standing === "Active") || [];
       return /* @__PURE__ */ React.createElement("div", { key: test.id, className: "card", style: { marginBottom: 8, overflow: "visible" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14 } }, test.name || "Unnamed Test"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 2 } }, test.category, " \xB7 ", test.type, " \xB7 ", (test.skis || []).length, " skis", test.testers ? ` \xB7 ${test.testers}` : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, winner && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { color: "var(--green)", fontSize: 9 } }, "Winner"), !winner && active.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { color: "var(--amber)", fontSize: 9 } }, "Active"), test.deadline && /* @__PURE__ */ React.createElement(CountdownBadge, { deadline: test.deadline }), /* @__PURE__ */ React.createElement(
@@ -4813,12 +4824,10 @@ Outcome: Eliminated`;
       { id: "compare", label: "Compare" },
       { id: "export", label: "Export" }
     ];
-    return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", maxWidth: 200 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, event.name), event.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, event.location)), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", maxWidth: 200 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, event.name), event.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, event.location)), /* @__PURE__ */ React.createElement(
       "button",
       {
-        onClick: () => {
-          if (window.confirm("Delete this event?")) onDelete(event.id);
-        },
+        onClick: () => setDeleteToast(true),
         className: "btn-text",
         style: { color: "var(--red)", fontSize: 13 }
       },
@@ -4871,6 +4880,17 @@ Outcome: Eliminated`;
         style: { width: "100%", marginTop: 8, padding: "14px 0", fontSize: 14, fontWeight: 600 }
       },
       "+ New Session"
+    ), /* @__PURE__ */ React.createElement(
+      GuidanceBanner,
+      {
+        storageKey: "waxlab:guide:sessions",
+        title: "What is a Session?",
+        lines: [
+          "A Session is a discrete testing block within a race day, typically defined by time or conditions.",
+          "Create a new Session when: conditions change significantly (e.g. warming after 10am), you move to a different part of the course, or a different group of testers takes over.",
+          "Each Session has its own temperature log. Run multiple Tests inside a Session simultaneously \u2014 for example, a glide test and a kick test running at the same time with different skis."
+        ]
+      }
     ), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Event Details"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement(TI, { label: "Event Name", value: event.name, onChange: (v) => upd({ name: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Race Name", value: event.raceName, onChange: (v) => upd({ raceName: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Location", value: event.location, onChange: (v) => upd({ location: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Date", value: event.date, onChange: (v) => upd({ date: v }), style: { marginBottom: 0 } })), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: event.notes, onChange: (v) => upd({ notes: v }), rows: 3, style: { marginTop: 12 } }), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Race Wax Selection"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Record which wax was actually applied for racing \u2014 may differ from the test winner based on projected conditions."), /* @__PURE__ */ React.createElement(
       TI,
       {
@@ -4897,12 +4917,123 @@ Outcome: Eliminated`;
         rows: 3,
         placeholder: "How did the race wax perform? Athlete feedback, start order notes\u2026"
       }
-    )), tab === "raceday" && /* @__PURE__ */ React.createElement(RaceDaySummary, { event, useCelsius }), tab === "trend" && /* @__PURE__ */ React.createElement(ConditionsTrend, { events: [event], useCelsius }), tab === "compare" && /* @__PURE__ */ React.createElement(CrossEventComparison, { events: allEvents, useCelsius }), tab === "export" && /* @__PURE__ */ React.createElement(ExportPanel, { event })));
+    )), tab === "raceday" && /* @__PURE__ */ React.createElement(RaceDaySummary, { event, useCelsius }), tab === "trend" && /* @__PURE__ */ React.createElement(ConditionsTrend, { events: [event], useCelsius }), tab === "compare" && /* @__PURE__ */ React.createElement(CrossEventComparison, { events: allEvents, useCelsius }), tab === "export" && /* @__PURE__ */ React.createElement(ExportPanel, { event }))), deleteToast && /* @__PURE__ */ React.createElement(
+      DeleteToast,
+      {
+        label: event.name,
+        onUndo: () => setDeleteToast(false),
+        onCommit: () => {
+          setDeleteToast(false);
+          onDelete(event.id);
+        }
+      }
+    ));
   }
-  function Home({ events, onNew, onOpen, useCelsius, teamCode, onRestore, onProducts, syncStatus, online }) {
+  function GuidanceBanner({ storageKey, title, lines }) {
+    const [visible, setVisible] = useState(() => !lsGet(storageKey));
+    if (!visible) return null;
+    function dismiss() {
+      lsSet(storageKey, true);
+      setVisible(false);
+    }
+    return /* @__PURE__ */ React.createElement("div", { style: {
+      background: "var(--paper-2)",
+      borderRadius: 10,
+      padding: "12px 14px",
+      marginBottom: 16,
+      borderLeft: "3px solid var(--blue)",
+      position: "relative"
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--blue)", marginBottom: 6 } }, title), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: dismiss,
+        className: "btn-text",
+        style: { fontSize: 18, lineHeight: 1, padding: "0 2px", marginTop: -2, flexShrink: 0 }
+      },
+      "\xD7"
+    )), lines.map((l, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+      fontSize: 12,
+      color: "var(--ink-mid)",
+      lineHeight: 1.65,
+      marginBottom: i < lines.length - 1 ? 4 : 0
+    } }, l)));
+  }
+  function DeleteToast({ label, onUndo, onCommit, seconds = 5 }) {
+    const [remaining, setRemaining] = useState(seconds);
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setRemaining((r) => {
+          if (r <= 1) {
+            clearInterval(interval);
+            onCommit();
+            return 0;
+          }
+          return r - 1;
+        });
+      }, 1e3);
+      return () => clearInterval(interval);
+    }, []);
+    const pct = remaining / seconds * 100;
+    return /* @__PURE__ */ React.createElement("div", { style: {
+      position: "fixed",
+      bottom: 24,
+      left: "50%",
+      transform: "translateX(-50%)",
+      zIndex: 9999,
+      background: "var(--ink)",
+      color: "#fff",
+      borderRadius: 10,
+      padding: "12px 16px",
+      display: "flex",
+      alignItems: "center",
+      gap: 14,
+      boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+      minWidth: 260,
+      maxWidth: "90vw"
+    } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600, marginBottom: 4 } }, label, " deleted"), /* @__PURE__ */ React.createElement("div", { style: { height: 3, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+      height: "100%",
+      background: "var(--amber)",
+      width: pct + "%",
+      transition: "width 1s linear"
+    } }))), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: onUndo,
+        style: {
+          background: "var(--amber)",
+          border: "none",
+          borderRadius: 6,
+          color: "#fff",
+          fontSize: 13,
+          fontWeight: 700,
+          padding: "8px 14px",
+          cursor: "pointer",
+          flexShrink: 0,
+          minHeight: 36
+        }
+      },
+      "Undo"
+    ));
+  }
+  function Home({ events, onNew, onOpen, onDelete, useCelsius, teamCode, onRestore, onProducts, syncStatus, online }) {
     const sorted = [...events].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const [showNewModal, setShowNewModal] = useState(false);
-    const lastEvent = sorted[0] || null;
+    const [pendingDelete, setPendingDelete] = useState(null);
+    const lastEvent = sorted.find((e) => e.id !== pendingDelete?.id) || null;
+    function requestDelete(ev, e) {
+      e.stopPropagation();
+      setPendingDelete({ id: ev.id, name: ev.name });
+    }
+    function undoDelete() {
+      setPendingDelete(null);
+    }
+    function commitDelete() {
+      if (pendingDelete) {
+        onDelete(pendingDelete.id);
+        setPendingDelete(null);
+      }
+    }
+    const visible = sorted.filter((e) => e.id !== pendingDelete?.id);
     return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px 12px", borderBottom: "1.5px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
       fontSize: 10,
       fontWeight: 600,
@@ -4910,19 +5041,44 @@ Outcome: Eliminated`;
       textTransform: "uppercase",
       color: "var(--ink-faint)",
       marginBottom: 4
-    } }, "WaxLab"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 26, fontWeight: 800, marginBottom: 12 } }, "Events"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", style: { flex: 2, fontSize: 14 }, onClick: () => setShowNewModal(true) }, "+ New Event"), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", style: { flex: 1, fontSize: 13 }, onClick: onProducts }, "Library"))), /* @__PURE__ */ React.createElement(SyncStatusBanner, { syncStatus, online }), /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, sorted.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "48px 0", color: "var(--ink-faint)", fontSize: 15 } }, "No events yet.", /* @__PURE__ */ React.createElement("br", null), "Tap New Event to get started.") : sorted.map((ev) => {
+    } }, "WaxLab"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 26, fontWeight: 800, marginBottom: 12 } }, "Events"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", style: { flex: 2, fontSize: 14 }, onClick: () => setShowNewModal(true) }, "+ New Event"), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", style: { flex: 1, fontSize: 13 }, onClick: onProducts }, "Library"))), /* @__PURE__ */ React.createElement(SyncStatusBanner, { syncStatus, online }), /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, /* @__PURE__ */ React.createElement(
+      GuidanceBanner,
+      {
+        storageKey: "waxlab:guide:events",
+        title: "How WaxLab is organised",
+        lines: [
+          "An Event is a single race day or venue \u2014 e.g. Craftsbury SuperTour Jan 18.",
+          "Inside each Event you create Sessions (e.g. morning and afternoon testing blocks), and inside each Session you run individual Tests to compare skis head-to-head.",
+          "After testing, use Race Day to review results and record which wax you actually raced."
+        ]
+      }
+    ), visible.length === 0 && !pendingDelete ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "48px 0", color: "var(--ink-faint)", fontSize: 15 } }, "No events yet.", /* @__PURE__ */ React.createElement("br", null), "Tap New Event to get started.") : visible.map((ev) => {
       const w = ev.weather;
       const winCount = (ev.sessions || []).flatMap((s) => s.tests || []).filter((t) => t.skis?.some((s) => s.standing === "Winner")).length;
       const testCount = (ev.sessions || []).flatMap((s) => s.tests || []).length;
-      return /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ React.createElement("div", { key: ev.id, style: { marginBottom: 10, position: "relative" } }, /* @__PURE__ */ React.createElement(
         "div",
         {
-          key: ev.id,
           className: "card",
           onClick: () => onOpen(ev.id),
-          style: { padding: "14px 16px", marginBottom: 10, cursor: "pointer" }
+          style: { padding: "14px 16px", cursor: "pointer" }
         },
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, marginRight: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 16 } }, ev.name), ev.raceName && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginTop: 1 } }, ev.raceName), ev.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 2 } }, ev.location)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, fmtDate(ev.date || ev.createdAt)), w?.airTempF != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600, marginTop: 2 } }, dispTemp(w.airTempF, useCelsius)), w?.sky && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)" } }, w.sky))),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, marginRight: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 16 } }, ev.name), ev.raceName && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginTop: 1 } }, ev.raceName), ev.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 2 } }, ev.location)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 8, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, fmtDate(ev.date || ev.createdAt)), w?.airTempF != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600, marginTop: 2 } }, dispTemp(w.airTempF, useCelsius)), w?.sky && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)" } }, w.sky)), /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            onClick: (e) => requestDelete(ev, e),
+            className: "btn-text",
+            style: {
+              color: "var(--red)",
+              fontSize: 18,
+              lineHeight: 1,
+              padding: "0 4px",
+              marginTop: -2,
+              minHeight: 32
+            }
+          },
+          "\xD7"
+        ))),
         (testCount > 0 || winCount > 0) && /* @__PURE__ */ React.createElement("div", { style: {
           display: "flex",
           gap: 12,
@@ -4930,8 +5086,8 @@ Outcome: Eliminated`;
           paddingTop: 8,
           borderTop: "1px solid var(--rule)"
         } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, testCount, " test", testCount !== 1 ? "s" : ""), winCount > 0 && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--green)", fontWeight: 600 } }, winCount, " winner", winCount !== 1 ? "s" : ""))
-      );
-    }), /* @__PURE__ */ React.createElement(BackupRestore, { teamCode, events, onRestore })), showNewModal && /* @__PURE__ */ React.createElement("div", { className: "snow-modal-backdrop", onClick: (e) => {
+      ));
+    }), /* @__PURE__ */ React.createElement(BackupRestore, { teamCode, events, onRestore })), pendingDelete && /* @__PURE__ */ React.createElement(DeleteToast, { label: pendingDelete.name, onUndo: undoDelete, onCommit: commitDelete }), showNewModal && /* @__PURE__ */ React.createElement("div", { className: "snow-modal-backdrop", onClick: (e) => {
       if (e.target === e.currentTarget) setShowNewModal(false);
     } }, /* @__PURE__ */ React.createElement("div", { className: "snow-modal" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17, fontWeight: 700 } }, "New Event"), /* @__PURE__ */ React.createElement("button", { onClick: () => setShowNewModal(false), className: "btn-text", style: { fontSize: 22 } }, "\xD7")), lastEvent ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginBottom: 16, lineHeight: 1.6 } }, "Copy the session and fleet setup from your last event, or start blank. Test results will not be copied."), /* @__PURE__ */ React.createElement(
       "button",
