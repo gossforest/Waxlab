@@ -2887,26 +2887,26 @@ Outcome: Eliminated`;
   }
   const SNOW_TEMP_PROCEDURE = /* @__PURE__ */ React.createElement("span", null, "Insert the probe into the snow at a ", /* @__PURE__ */ React.createElement("strong", null, "45\xB0 angle"), ", 2\u20133 cm deep into the ski track. Wait for the reading to stabilise (", /* @__PURE__ */ React.createElement("strong", null, "5\u201310 sec"), "). Take readings at ", /* @__PURE__ */ React.createElement("strong", null, "2\u20133 spots"), " along the course and average them.");
   const AIR_TEMP_PROCEDURE = /* @__PURE__ */ React.createElement("span", null, "Lay the probe ", /* @__PURE__ */ React.createElement("strong", null, "flat on the snow surface"), " \u2014 on the classic track groove for classic races, or on the groomed lane for skate races. Keep it ", /* @__PURE__ */ React.createElement("strong", null, "out of direct sunlight"), " and away from your body heat. Wait for the reading to stabilise (", /* @__PURE__ */ React.createElement("strong", null, "5\u201310 sec"), ").");
-  function SnowTempFAB(props) {
+  function SnowTempFAB({ fabClass = "snow-fab", ...props }) {
     return /* @__PURE__ */ React.createElement(
       TempFAB,
       {
         ...props,
         label: "Snow Temperature",
         icon: /* @__PURE__ */ React.createElement(SnowIcon, { size: 16, color: "var(--blue)" }),
-        fabClass: "snow-fab",
+        fabClass,
         procedure: SNOW_TEMP_PROCEDURE
       }
     );
   }
-  function AirTempFAB(props) {
+  function AirTempFAB({ fabClass = "air-fab", ...props }) {
     return /* @__PURE__ */ React.createElement(
       TempFAB,
       {
         ...props,
         label: "Air Temperature",
         icon: /* @__PURE__ */ React.createElement(ThermIcon, { size: 16, color: "var(--amber)" }),
-        fabClass: "air-fab",
+        fabClass,
         procedure: AIR_TEMP_PROCEDURE
       }
     );
@@ -4679,6 +4679,95 @@ Outcome: Eliminated`;
       "Photos"
     ), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", style: { flex: 1 }, onClick: onCancel }, "Cancel")));
   }
+  function SessionTempButton({ kind, icon, color, readings = [], onAdd, onDelete, useCelsius, onUnitToggle }) {
+    const [open, setOpen] = useState(false);
+    const [val, setVal] = useState("");
+    const inputRef = useRef(null);
+    const last = readings.length ? readings[readings.length - 1] : null;
+    function submit() {
+      const stored = storeTemp(val, useCelsius);
+      if (stored == null) return;
+      onAdd({ ts: nowStr(), tempF: stored });
+      setVal("");
+      inputRef.current?.focus();
+    }
+    return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        style: {
+          width: "100%",
+          padding: "12px 0",
+          fontSize: 13,
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6
+        },
+        onClick: () => {
+          setOpen(true);
+          setTimeout(() => inputRef.current?.focus(), 100);
+        }
+      },
+      icon,
+      last ? dispTemp(last.tempF, useCelsius) : kind === "Snow" ? "Snow Temp" : "Air Temp"
+    ), open && /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        className: "snow-modal-backdrop",
+        onClick: (e) => {
+          if (e.target === e.currentTarget) setOpen(false);
+        }
+      },
+      /* @__PURE__ */ React.createElement("div", { className: "snow-modal" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17, fontWeight: 700, display: "flex", alignItems: "center", gap: 7 } }, icon, " ", kind === "Snow" ? "Snow Temperature" : "Air Temperature"), /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(false), className: "btn-text", style: { fontSize: 22 } }, "\xD7")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16 } }, /* @__PURE__ */ React.createElement(
+        "input",
+        {
+          ref: inputRef,
+          className: "inp",
+          type: "number",
+          inputMode: "decimal",
+          value: val,
+          placeholder: useCelsius ? "e.g. -5" : "e.g. 23",
+          onChange: (e) => setVal(e.target.value),
+          onKeyDown: (e) => e.key === "Enter" && submit(),
+          style: { flex: 1, fontSize: 22, fontWeight: 700, textAlign: "center" }
+        }
+      ), /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: submit, style: { padding: "0 20px" } }, "Log")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Readings"), /* @__PURE__ */ React.createElement(UnitPill, { useCelsius, onChange: onUnitToggle || (() => {
+      }) })), readings.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", fontSize: 13, padding: "8px 0" } }, "No readings yet.") : [...readings].sort((a, b) => new Date(b.ts) - new Date(a.ts)).map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "8px 0",
+        borderTop: "1px solid var(--rule)"
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 16, fontWeight: 600 } }, dispTemp(r.tempF, useCelsius)), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, fmtTime(r.ts)), /* @__PURE__ */ React.createElement("button", { onClick: () => onDelete(i), className: "btn-text", style: { padding: "4px 8px" } }, "\xD7"))))
+    ));
+  }
+  function SessionTempButtons({ session, onUpdate, useCelsius, onUnitToggle }) {
+    return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 } }, /* @__PURE__ */ React.createElement(
+      SessionTempButton,
+      {
+        kind: "Snow",
+        icon: /* @__PURE__ */ React.createElement(SnowIcon, { size: 16, color: "var(--blue)" }),
+        readings: session.snowTemps || [],
+        onAdd: (r) => onUpdate({ ...session, snowTemps: [...session.snowTemps || [], r] }),
+        onDelete: (i) => onUpdate({ ...session, snowTemps: (session.snowTemps || []).filter((_, idx) => idx !== i) }),
+        useCelsius,
+        onUnitToggle
+      }
+    ), /* @__PURE__ */ React.createElement(
+      SessionTempButton,
+      {
+        kind: "Air",
+        icon: /* @__PURE__ */ React.createElement(ThermIcon, { size: 16, color: "var(--amber)" }),
+        readings: session.airTemps || [],
+        onAdd: (r) => onUpdate({ ...session, airTemps: [...session.airTemps || [], r] }),
+        onDelete: (i) => onUpdate({ ...session, airTemps: (session.airTemps || []).filter((_, idx) => idx !== i) }),
+        useCelsius,
+        onUnitToggle
+      }
+    ));
+  }
   function SessionView({ session, onUpdate, onBack, vocab, onVocabAdd, useCelsius, onUnitToggle, teamCode, eventId, fleets = [], allEvents = [], onPromoteEventWeather, activeTestId, onSetActiveTest }) {
     const [tab, setTab] = useState("tests");
     const setActiveTestId = onSetActiveTest || (() => {
@@ -4920,27 +5009,15 @@ Outcome: Eliminated`;
       borderRadius: 8,
       padding: "12px 14px",
       borderLeft: "3px solid var(--amber)"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement(ThermIcon, { size: 14, color: "var(--amber)" }), "Air Temp"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)", lineHeight: 1.6 } }, "Lay probe ", /* @__PURE__ */ React.createElement("strong", null, "flat on the snow surface"), " \u2014 in the classic track or skate lane. Out of sun. Wait 5\u201310 sec."))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 } }, /* @__PURE__ */ React.createElement(
-      SnowTempFAB,
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement(ThermIcon, { size: 14, color: "var(--amber)" }), "Air Temp"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)", lineHeight: 1.6 } }, "Lay probe ", /* @__PURE__ */ React.createElement("strong", null, "flat on the snow surface"), " \u2014 in the classic track or skate lane. Out of sun. Wait 5\u201310 sec."))), /* @__PURE__ */ React.createElement(
+      SessionTempButtons,
       {
-        readings: session.snowTemps || [],
-        onAdd: (r) => onUpdate({ ...session, snowTemps: [...session.snowTemps || [], r] }),
-        onDelete: (i) => onUpdate({ ...session, snowTemps: (session.snowTemps || []).filter((_, idx) => idx !== i) }),
+        session,
+        onUpdate,
         useCelsius,
-        onUnitToggle,
-        fabClass: ""
+        onUnitToggle
       }
-    ), /* @__PURE__ */ React.createElement(
-      AirTempFAB,
-      {
-        readings: session.airTemps || [],
-        onAdd: (r) => onUpdate({ ...session, airTemps: [...session.airTemps || [], r] }),
-        onDelete: (i) => onUpdate({ ...session, airTemps: (session.airTemps || []).filter((_, idx) => idx !== i) }),
-        useCelsius,
-        onUnitToggle,
-        fabClass: ""
-      }
-    )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, "All Readings"), /* @__PURE__ */ React.createElement(UnitPill, { useCelsius, onChange: onUnitToggle })), (() => {
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, "All Readings"), /* @__PURE__ */ React.createElement(UnitPill, { useCelsius, onChange: onUnitToggle })), (() => {
       const allReadings = [
         ...(session.snowTemps || []).map((r) => ({ ...r, kind: "Snow", testName: "(session)" })),
         ...(session.airTemps || []).map((r) => ({ ...r, kind: "Air", testName: "(session)" })),
