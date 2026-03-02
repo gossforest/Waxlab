@@ -523,7 +523,7 @@ var WaxApp = (() => {
       fontWeight: 800,
       fontSize: 18,
       color: p.wins > 0 ? "var(--green)" : "var(--ink-faint)"
-    } }, p.wins, "W"), p.losses > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, color: "var(--ink-faint)", marginLeft: 4 } }, p.losses, "L"), p.winRate != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 1 } }, (p.winRate * 100).toFixed(0), "% win"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, flexWrap: "wrap", marginTop: 4 } }, p.avgAir != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, "air ", dispF(p.avgAir), " avg"), p.avgSnow != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, "snow ", dispF(p.avgSnow), " avg"), p.avgRating != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, "\u2605 ", p.avgRating.toFixed(1), " avg"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, p.appearances, " tests \xB7 ", p.eventNames.length, " event", p.eventNames.length !== 1 ? "s" : "")), Object.keys(p.snowTypes).length > 1 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" } }, Object.entries(p.snowTypes).sort((a, b) => b[1] - a[1]).map(([type, count]) => /* @__PURE__ */ React.createElement(
+    } }, p.wins, "W"), p.losses > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, color: "var(--ink-faint)", marginLeft: 4 } }, p.losses, "L"), p.winRate != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 1 } }, (p.winRate * 100).toFixed(0), "% win"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, flexWrap: "wrap", marginTop: 4 } }, p.avgAir != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, "air ", dispF(p.avgAir), " avg"), p.avgSnow != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, "snow ", dispF(p.avgSnow), " avg"), p.avgRating != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(StarIcon, { size: 11, color: "currentColor" }), " ", p.avgRating.toFixed(1), " avg")), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, p.appearances, " tests \xB7 ", p.eventNames.length, " event", p.eventNames.length !== 1 ? "s" : "")), Object.keys(p.snowTypes).length > 1 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" } }, Object.entries(p.snowTypes).sort((a, b) => b[1] - a[1]).map(([type, count]) => /* @__PURE__ */ React.createElement(
       "span",
       {
         key: type,
@@ -1404,7 +1404,7 @@ Outcome: Eliminated`;
   function SI({ label, value, onChange, options, style }) {
     return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12, ...style } }, label && /* @__PURE__ */ React.createElement(Lbl, null, label), /* @__PURE__ */ React.createElement("select", { className: "inp", value: value || "", onChange: (e) => onChange(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 select \u2014"), options.map((o) => /* @__PURE__ */ React.createElement("option", { key: o, value: o }, o))));
   }
-  function TA({ label, value, onChange, placeholder, rows, style }) {
+  function TA({ label, value, onChange, placeholder, rows, style, mic }) {
     const [local, setLocal] = useState(value || "");
     const lastProp = useRef(value);
     const commitTimer = useRef(null);
@@ -1417,7 +1417,11 @@ Outcome: Eliminated`;
       clearTimeout(commitTimer.current);
       commitTimer.current = setTimeout(() => onChange(v), 600);
     }
-    return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12, ...style } }, label && /* @__PURE__ */ React.createElement(Lbl, null, label), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12, ...style } }, label && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, label), mic && /* @__PURE__ */ React.createElement(MicButton, { onText: (t) => {
+      const v = local ? local + " " + t : t;
+      handleChange(v);
+      onChange(v);
+    } })), /* @__PURE__ */ React.createElement(
       "textarea",
       {
         className: "inp",
@@ -1589,7 +1593,23 @@ Outcome: Eliminated`;
       alignItems: "center",
       justifyContent: "center",
       animation: "wl-pulse 1.2s ease-in-out infinite"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 72, marginBottom: 16 } }, "\u23F1"), /* @__PURE__ */ React.createElement("div", { style: {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(
+      "svg",
+      {
+        width: "64",
+        height: "64",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "var(--amber)",
+        strokeWidth: "1.5",
+        strokeLinecap: "round",
+        strokeLinejoin: "round"
+      },
+      /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "13", r: "8" }),
+      /* @__PURE__ */ React.createElement("path", { d: "M12 9v4l2 2" }),
+      /* @__PURE__ */ React.createElement("path", { d: "M9 2h6" }),
+      /* @__PURE__ */ React.createElement("path", { d: "M19.5 6.5l-1-1" })
+    )), /* @__PURE__ */ React.createElement("div", { style: {
       fontSize: 24,
       fontWeight: 800,
       color: "#fff",
@@ -1693,7 +1713,7 @@ Outcome: Eliminated`;
       borderRadius: 4,
       background: urgent ? "var(--red)" : warning ? "var(--amber)" : "var(--paper-3)",
       color: urgent || warning ? "#fff" : "var(--ink-mid)"
-    } }, "\u23F1 ", label);
+    } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement(TimerIcon, { size: 11, color: urgent || warning ? "#fff" : "var(--ink-mid)" }), label));
   }
   function DeadlinePicker({ test, onSave, onClose }) {
     function defaultTime() {
@@ -1833,6 +1853,67 @@ Outcome: Eliminated`;
     useEffect(() => () => recRef.current?.stop(), []);
     return { listening, supported, start, stop };
   }
+  const IC = {
+    w: 2,
+    // default stroke width
+    lc: "round",
+    // stroke-linecap
+    lj: "round"
+    // stroke-linejoin
+  };
+  function Svg({ size = 18, color = "currentColor", children, fill = "none", sw = IC.w }) {
+    return /* @__PURE__ */ React.createElement(
+      "svg",
+      {
+        width: size,
+        height: size,
+        viewBox: "0 0 24 24",
+        fill,
+        stroke: color,
+        strokeWidth: sw,
+        strokeLinecap: IC.lc,
+        strokeLinejoin: IC.lj,
+        style: { display: "block", flexShrink: 0 }
+      },
+      children
+    );
+  }
+  function MicIcon({ size = 18, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("rect", { x: "9", y: "2", width: "6", height: "12", rx: "3" }), /* @__PURE__ */ React.createElement("path", { d: "M5 10a7 7 0 0 0 14 0" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "17", x2: "12", y2: "21" }), /* @__PURE__ */ React.createElement("line", { x1: "8", y1: "21", x2: "16", y2: "21" }));
+  }
+  function StopIcon({ size = 16, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color, fill: color, sw: 0 }, /* @__PURE__ */ React.createElement("rect", { x: "5", y: "5", width: "14", height: "14", rx: "2" }));
+  }
+  function ChevronIcon({ size = 14, color = "currentColor", up = false }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, up ? /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" }) : /* @__PURE__ */ React.createElement("polyline", { points: "6 9 12 15 18 9" }));
+  }
+  function AdvanceIcon({ size = 16, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("polyline", { points: "18 15 12 9 6 15" }));
+  }
+  function EliminateIcon({ size = 16, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("line", { x1: "18", y1: "6", x2: "6", y2: "18" }), /* @__PURE__ */ React.createElement("line", { x1: "6", y1: "6", x2: "18", y2: "18" }));
+  }
+  function TimerIcon({ size = 16, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "13", r: "8" }), /* @__PURE__ */ React.createElement("path", { d: "M12 9v4l2.5 2.5" }), /* @__PURE__ */ React.createElement("path", { d: "M9.5 2.5h5" }), /* @__PURE__ */ React.createElement("path", { d: "M19.5 6.5-1-1" }));
+  }
+  function StarIcon({ size = 13, color = "currentColor", filled = false }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color, fill: filled ? color : "none" }, /* @__PURE__ */ React.createElement("polygon", { points: "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" }));
+  }
+  function CheckIcon({ size = 14, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("polyline", { points: "20 6 9 17 4 12" }));
+  }
+  function ArrowUpIcon({ size = 13, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "19", x2: "12", y2: "5" }), /* @__PURE__ */ React.createElement("polyline", { points: "5 12 12 5 19 12" }));
+  }
+  function WifiOffIcon({ size = 14, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("line", { x1: "1", y1: "1", x2: "23", y2: "23" }), /* @__PURE__ */ React.createElement("path", { d: "M16.72 11.06A10.94 10.94 0 0 1 19 12.55" }), /* @__PURE__ */ React.createElement("path", { d: "M5 12.55a10.94 10.94 0 0 1 5.17-2.39" }), /* @__PURE__ */ React.createElement("path", { d: "M10.71 5.05A16 16 0 0 1 22.56 9" }), /* @__PURE__ */ React.createElement("path", { d: "M1.42 9a15.91 15.91 0 0 1 4.7-2.88" }), /* @__PURE__ */ React.createElement("path", { d: "M8.53 16.11a6 6 0 0 1 6.95 0" }), /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "20", x2: "12.01", y2: "20", strokeWidth: "3" }));
+  }
+  function SnowIcon({ size = 16, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("line", { x1: "12", y1: "2", x2: "12", y2: "22" }), /* @__PURE__ */ React.createElement("path", { d: "m20 6-8 4-8-4" }), /* @__PURE__ */ React.createElement("path", { d: "m20 18-8-4-8 4" }), /* @__PURE__ */ React.createElement("path", { d: "m2 12 5-3 5 3 5-3 5 3" }), /* @__PURE__ */ React.createElement("path", { d: "m2 12 5 3 5-3 5 3 5-3" }));
+  }
+  function ThermIcon({ size = 16, color = "currentColor" }) {
+    return /* @__PURE__ */ React.createElement(Svg, { size, color }, /* @__PURE__ */ React.createElement("path", { d: "M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" }));
+  }
   function MicButton({ onText, style }) {
     const { listening, supported, start, stop } = useMic((transcript) => {
       onText(transcript);
@@ -1843,22 +1924,25 @@ Outcome: Eliminated`;
       {
         onMouseDown: (e) => e.preventDefault(),
         onClick: listening ? stop : start,
+        title: listening ? "Stop recording" : "Dictate",
         style: {
           background: listening ? "var(--red)" : "var(--paper-3)",
-          border: "1.5px solid var(--rule)",
+          border: listening ? "1.5px solid var(--red)" : "1.5px solid var(--rule)",
           borderRadius: 6,
           color: listening ? "#fff" : "var(--ink-mid)",
           cursor: "pointer",
-          fontSize: 16,
-          lineHeight: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           minHeight: 38,
           minWidth: 38,
           padding: "0 10px",
           flexShrink: 0,
+          transition: "background 0.15s, border-color 0.15s",
           ...style
         }
       },
-      listening ? "\u23F9" : "\u{1F399}"
+      listening ? /* @__PURE__ */ React.createElement(StopIcon, { size: 14, color: "#fff" }) : /* @__PURE__ */ React.createElement(MicIcon, { size: 17 })
     );
   }
   function normaliseTranscript(transcript) {
@@ -1949,7 +2033,8 @@ Outcome: Eliminated`;
       { action: "runnerup", words: ["runnerup", "runner", "second", "2nd", "silver", "place2"] },
       { action: "pair", words: ["pair", "compare", "versus", "vs", "match", "test"] },
       { action: "restore", words: ["restore", "back", "revive", "return", "undo"] },
-      { action: "rate", words: ["rate", "rated", "rating", "race", "score", "scored", "mark"] }
+      { action: "rate", words: ["rate", "rated", "rating", "race", "score", "scored", "mark"] },
+      { action: "note", words: ["note", "notes", "comment", "observe", "observation"] }
     ];
     let detectedAction = null;
     for (const { action, words } of actionMap) {
@@ -1990,9 +2075,19 @@ Outcome: Eliminated`;
     if (detectedAction === "rate" && skiId) {
       return { action: "rate", skiId, glide, kick };
     }
+    const tempMatch = norm.match(/(snow|air).*?(-?\d+(?:\.\d+)?)/);
+    if (tempMatch) {
+      const kind = tempMatch[1];
+      const val = parseFloat(tempMatch[2]);
+      if (!isNaN(val)) return { action: "temp", kind, val };
+    }
+    const noteMatch = norm.match(/note\s+([a-z]{1,2}\d{1,2})\s+(.*)/i);
+    if (noteMatch) {
+      return { action: "note", skiId: noteMatch[1].toUpperCase(), text: noteMatch[2].trim() };
+    }
     return null;
   }
-  function VoiceCommandBar({ skis, isGlide, onAdvance, onEliminate, onWinner, onRestore, onRate, onPair, onRunnerUp }) {
+  function VoiceCommandBar({ skis, isGlide, onAdvance, onEliminate, onWinner, onRestore, onRate, onPair, onRunnerUp, onSnowTemp, onAirTemp, onNote }) {
     const [pending, setPending] = useState(null);
     const knownIds = (skis || []).map((s) => s.id);
     const { listening, supported, start, stop } = useMic((transcript) => {
@@ -2006,7 +2101,7 @@ Outcome: Eliminated`;
         setPending(null);
         return;
       }
-      const { action, skiId, skiId2, glide, kick } = pending;
+      const { action, skiId, skiId2, glide, kick, kind, val, text } = pending;
       if (action === "advance") onAdvance?.(skiId);
       if (action === "eliminate") onEliminate?.(skiId);
       if (action === "winner") onWinner?.(skiId);
@@ -2014,6 +2109,9 @@ Outcome: Eliminated`;
       if (action === "rate") onRate?.(skiId, { glide, kick });
       if (action === "pair") onPair?.(skiId, skiId2);
       if (action === "runnerup") onRunnerUp?.(skiId);
+      if (action === "temp" && kind === "snow") onSnowTemp?.(val);
+      if (action === "temp" && kind === "air") onAirTemp?.(val);
+      if (action === "note") onNote?.(skiId, text);
       setPending(null);
     }
     function describeCommand(cmd) {
@@ -2024,6 +2122,8 @@ Outcome: Eliminated`;
       if (cmd.action === "restore") return `Restore ${cmd.skiId}`;
       if (cmd.action === "pair") return `Set pair: ${cmd.skiId} vs ${cmd.skiId2}`;
       if (cmd.action === "runnerup") return `Mark runner-up: ${cmd.skiId}`;
+      if (cmd.action === "temp") return `Log ${cmd.kind} temp: ${cmd.val}\xB0`;
+      if (cmd.action === "note") return `Note on ${cmd.skiId}: "${cmd.text}"`;
       if (cmd.action === "rate") {
         const parts = [];
         if (cmd.glide != null) parts.push(`glide ${cmd.glide}`);
@@ -2038,7 +2138,14 @@ Outcome: Eliminated`;
       borderRadius: 8,
       marginBottom: 8,
       border: "1.5px solid var(--rule)"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600, marginBottom: 8 } }, pending.action === "unknown" ? "\u26A0 " : "\u{1F399} ", describeCommand(pending)), pending.action !== "unknown" && pending._raw && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginBottom: 6, fontStyle: "italic" } }, 'heard: "', pending._raw, '"'), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, pending.action !== "unknown" && /* @__PURE__ */ React.createElement(
+    } }, /* @__PURE__ */ React.createElement("div", { style: {
+      fontSize: 13,
+      fontWeight: 600,
+      marginBottom: 8,
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    } }, pending.action === "unknown" ? /* @__PURE__ */ React.createElement("span", { style: { color: "var(--amber)", fontSize: 15 } }, "!") : /* @__PURE__ */ React.createElement(MicIcon, { size: 14, color: "var(--blue)" }), describeCommand(pending)), pending.action !== "unknown" && pending._raw && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginBottom: 6, fontStyle: "italic" } }, 'heard: "', pending._raw, '"'), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, pending.action !== "unknown" && /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "btn",
@@ -2063,19 +2170,23 @@ Outcome: Eliminated`;
           width: "100%",
           fontSize: 14,
           padding: "10px 0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
           background: listening ? "var(--red)" : void 0,
           color: listening ? "#fff" : void 0,
           borderColor: listening ? "var(--red)" : void 0
         }
       },
-      listening ? "\u23F9 Listening\u2026 tap to stop" : "\u{1F399} Voice Command"
+      listening ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(StopIcon, { size: 14, color: "#fff" }), " Listening \u2014 tap to stop") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(MicIcon, { size: 16 }), " Voice Command")
     ), !listening && !pending && /* @__PURE__ */ React.createElement("div", { style: {
       fontSize: 11,
       color: "var(--ink-faint)",
       textAlign: "center",
       marginTop: 6,
-      lineHeight: 1.6
-    } }, /* @__PURE__ */ React.createElement("div", null, '"Advance A1" \xB7 "Eliminate B2" \xB7 "Winner C1"'), /* @__PURE__ */ React.createElement("div", null, '"Pair A1 B2" \xB7 "Runner up A1" \xB7 "Second B2"'), /* @__PURE__ */ React.createElement("div", null, '"Rate A1 glide 8 kick 4" \xB7 "A1 glide seven"'), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, color: "var(--rule)" } }, "Also: keep/drop/pass \xB7 compare \xB7 versus \xB7 ay-one")));
+      lineHeight: 1.7
+    } }, /* @__PURE__ */ React.createElement("div", null, '"Advance A1" \xB7 "Eliminate B2" \xB7 "Winner C1"'), /* @__PURE__ */ React.createElement("div", null, '"Pair A1 B2" \xB7 "Runner up A1" \xB7 "Second B2"'), /* @__PURE__ */ React.createElement("div", null, '"Rate A1 glide 8 kick 4" \xB7 "A1 glide seven"'), /* @__PURE__ */ React.createElement("div", null, '"Snow temp 28" \xB7 "Air temp negative 3"'), /* @__PURE__ */ React.createElement("div", null, '"Note A1 felt slow in the tracks"'), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, color: "var(--rule)" } }, "keep/drop/pass \xB7 compare \xB7 versus \xB7 ay-one")));
   }
   function FleetSkiRow({ ski, onChange, onDelete }) {
     return /* @__PURE__ */ React.createElement("div", { style: {
@@ -2203,6 +2314,7 @@ Outcome: Eliminated`;
       {
         label: "Fleet Notes",
         value: fleet.notes || "",
+        mic: true,
         onChange: (v) => onChange({ ...fleet, notes: v }),
         placeholder: "General notes about this fleet (age, storage, history\u2026)",
         rows: 2,
@@ -2390,7 +2502,7 @@ Outcome: Eliminated`;
         fontSize: 13,
         fontWeight: 700,
         color: gap < 1 ? "var(--ink-faint)" : "var(--green)"
-      } }, faster ? `${faster} +${gap.toFixed(1)}cm` : "Even"), !complete && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { fontSize: 9, color: "var(--amber)" } }, "in progress"), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-faint)", fontSize: 12 } }, open ? "\u25B2" : "\u25BC"))
+      } }, faster ? `${faster} +${gap.toFixed(1)}cm` : "Even"), !complete && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { fontSize: 9, color: "var(--amber)" } }, "in progress"), /* @__PURE__ */ React.createElement(ChevronIcon, { size: 14, color: "var(--ink-faint)", up: open }))
     ), open && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 14px", borderTop: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: {
       marginTop: 12,
       marginBottom: 10,
@@ -2423,6 +2535,7 @@ Outcome: Eliminated`;
         label: "Notes",
         value: comp.legA?.notes || "",
         rows: 1,
+        mic: true,
         onChange: (v) => updLeg("legA", "notes", v),
         placeholder: "Track, conditions, timing\u2026",
         style: { marginBottom: 0 }
@@ -2449,6 +2562,7 @@ Outcome: Eliminated`;
         label: "Notes",
         value: comp.legB?.notes || "",
         rows: 1,
+        mic: true,
         onChange: (v) => updLeg("legB", "notes", v),
         placeholder: "Track, conditions, timing\u2026",
         style: { marginBottom: 0 }
@@ -2597,6 +2711,7 @@ Outcome: Eliminated`;
         label: "Tester(s)",
         value: testers,
         onChange: setTesters,
+        mic: true,
         placeholder: "Names or initials of the two skiers",
         style: { marginBottom: 8 }
       }
@@ -2736,12 +2851,10 @@ Outcome: Eliminated`;
           setTimeout(() => inputRef.current?.focus(), 100);
         }
       },
-      icon,
-      " ",
-      last ? dispTemp(last.tempF, useCelsius) : label
+      /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } }, icon, " ", last ? dispTemp(last.tempF, useCelsius) : label)
     ), open && /* @__PURE__ */ React.createElement("div", { className: "snow-modal-backdrop", onClick: (e) => {
       if (e.target === e.currentTarget) setOpen(false);
-    } }, /* @__PURE__ */ React.createElement("div", { className: "snow-modal" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: procedure ? 10 : 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17, fontWeight: 700 } }, icon, " ", label), /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(false), className: "btn-text", style: { fontSize: 22 } }, "\xD7")), procedure && /* @__PURE__ */ React.createElement("div", { style: {
+    } }, /* @__PURE__ */ React.createElement("div", { className: "snow-modal" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: procedure ? 10 : 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17, fontWeight: 700, display: "flex", alignItems: "center", gap: 7 } }, icon, " ", label), /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(false), className: "btn-text", style: { fontSize: 22 } }, "\xD7")), procedure && /* @__PURE__ */ React.createElement("div", { style: {
       background: "var(--paper-3)",
       borderRadius: 6,
       padding: "10px 12px",
@@ -2775,10 +2888,28 @@ Outcome: Eliminated`;
   const SNOW_TEMP_PROCEDURE = /* @__PURE__ */ React.createElement("span", null, "Insert the probe into the snow at a ", /* @__PURE__ */ React.createElement("strong", null, "45\xB0 angle"), ", 2\u20133 cm deep into the ski track. Wait for the reading to stabilise (", /* @__PURE__ */ React.createElement("strong", null, "5\u201310 sec"), "). Take readings at ", /* @__PURE__ */ React.createElement("strong", null, "2\u20133 spots"), " along the course and average them.");
   const AIR_TEMP_PROCEDURE = /* @__PURE__ */ React.createElement("span", null, "Lay the probe ", /* @__PURE__ */ React.createElement("strong", null, "flat on the snow surface"), " \u2014 on the classic track groove for classic races, or on the groomed lane for skate races. Keep it ", /* @__PURE__ */ React.createElement("strong", null, "out of direct sunlight"), " and away from your body heat. Wait for the reading to stabilise (", /* @__PURE__ */ React.createElement("strong", null, "5\u201310 sec"), ").");
   function SnowTempFAB(props) {
-    return /* @__PURE__ */ React.createElement(TempFAB, { ...props, label: "Snow Temperature", icon: "\u2744", fabClass: "snow-fab", procedure: SNOW_TEMP_PROCEDURE });
+    return /* @__PURE__ */ React.createElement(
+      TempFAB,
+      {
+        ...props,
+        label: "Snow Temperature",
+        icon: /* @__PURE__ */ React.createElement(SnowIcon, { size: 16, color: "var(--blue)" }),
+        fabClass: "snow-fab",
+        procedure: SNOW_TEMP_PROCEDURE
+      }
+    );
   }
   function AirTempFAB(props) {
-    return /* @__PURE__ */ React.createElement(TempFAB, { ...props, label: "Air Temperature", icon: "\u{1F321}", fabClass: "air-fab", procedure: AIR_TEMP_PROCEDURE });
+    return /* @__PURE__ */ React.createElement(
+      TempFAB,
+      {
+        ...props,
+        label: "Air Temperature",
+        icon: /* @__PURE__ */ React.createElement(ThermIcon, { size: 16, color: "var(--amber)" }),
+        fabClass: "air-fab",
+        procedure: AIR_TEMP_PROCEDURE
+      }
+    );
   }
   function WeatherPanel({ weather = {}, onChange, vocab, onVocabAdd, useCelsius, onUnitToggle, onPromoteWeather }) {
     const [place, setPlace] = useState("");
@@ -2973,7 +3104,7 @@ Outcome: Eliminated`;
         suggestions: vocab?.grooming || [],
         placeholder: "e.g. 1-day-old machine groomed"
       }
-    ), /* @__PURE__ */ React.createElement(TA, { label: "Course Notes", value: w.trailNotes, onChange: (v) => up("trailNotes", v), rows: 2 }), onPromoteWeather && w.airTempF != null && /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement(TA, { label: "Course Notes", value: w.trailNotes, onChange: (v) => up("trailNotes", v), rows: 2, mic: true }), onPromoteWeather && w.airTempF != null && /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "btn-ghost",
@@ -3046,7 +3177,7 @@ Outcome: Eliminated`;
         className: "btn-ghost",
         style: { width: "100%", fontSize: 13, padding: "10px 0", fontWeight: 600 }
       },
-      open ? "\u25B2 Hide Wax Suggestions" : "Suggest Wax from History"
+      /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(ChevronIcon, { size: 13, color: "currentColor", up: open }), open ? "Hide Wax Suggestions" : "Suggest Wax from History")
     ), open && /* @__PURE__ */ React.createElement("div", { style: {
       marginTop: 12,
       padding: "14px",
@@ -3678,7 +3809,7 @@ Outcome: Eliminated`;
         className: "btn-ghost",
         style: { padding: "6px 12px", fontSize: 12, minHeight: 34 }
       },
-      expanded ? "Hide" : "\u2605 Rate"
+      expanded ? "Hide" : /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement(StarIcon, { size: 12, color: "currentColor" }), "Rate")
     ))), expanded && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 12px", borderTop: "1px solid var(--rule)" } }, !isGlide && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 12, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", width: 70, flexShrink: 0 } }, "KICK 1\u201310"), /* @__PURE__ */ React.createElement(
       "input",
       {
@@ -3712,16 +3843,26 @@ Outcome: Eliminated`;
       textAlign: "right",
       color: glide != null ? compositeColor(glide, 10) : "var(--ink-faint)"
     } }, glide ?? "-")), composite != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }, className: "mono" }, "Composite: ", /* @__PURE__ */ React.createElement("span", { style: { color: compositeColor(composite, max), fontWeight: 700 } }, composite, "/", max)), /* @__PURE__ */ React.createElement(
-      "textarea",
+      TA,
       {
-        className: "inp",
-        rows: 2,
+        label: "",
         value: ski.feelNotes || "",
+        rows: 2,
+        mic: true,
         placeholder: "Feel notes\u2026",
-        style: { fontSize: 13, marginBottom: 0 },
-        onChange: (e) => onRatingChange(ski.id, ratings, { feelNotes: e.target.value })
+        style: { marginBottom: 0 },
+        onChange: (v) => onRatingChange(ski.id, ratings, { feelNotes: v })
       }
-    )), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr" } }, /* @__PURE__ */ React.createElement("button", { className: "btn-advance", onClick: onAdvance }, "\u25B2 Advance"), /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr" } }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-advance",
+        onClick: onAdvance,
+        style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }
+      },
+      /* @__PURE__ */ React.createElement(AdvanceIcon, { size: 15, color: "#fff" }),
+      " Advance"
+    ), /* @__PURE__ */ React.createElement(
       "button",
       {
         style: {
@@ -3736,7 +3877,16 @@ Outcome: Eliminated`;
         onClick: onRunnerUp
       },
       "2nd"
-    ), /* @__PURE__ */ React.createElement("button", { className: "btn-eliminate", onClick: onEliminate }, "\u2715 Eliminate")), /* @__PURE__ */ React.createElement("div", { style: { padding: "5px 0 6px", textAlign: "center" }, className: "mono" }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.04em" } }, "swipe \u2192 advance  \xB7  swipe \u2190 eliminate"))));
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-eliminate",
+        onClick: onEliminate,
+        style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }
+      },
+      /* @__PURE__ */ React.createElement(EliminateIcon, { size: 14, color: "#fff" }),
+      " Eliminate"
+    )), /* @__PURE__ */ React.createElement("div", { style: { padding: "5px 0 6px", textAlign: "center" }, className: "mono" }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.04em" } }, "swipe \u2192 advance  \xB7  swipe \u2190 eliminate"))));
   }
   function SkiCard({ ski, isGlide, isBlind, onRatingChange, onPhotoSave, teamCode, eventId }) {
     const [open, setOpen] = useState(false);
@@ -3774,7 +3924,7 @@ Outcome: Eliminated`;
         style: { padding: "5px 9px", fontSize: 12, fontWeight: 600, minHeight: 32 }
       },
       "Photo"
-    ), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--ink-faint)", fontSize: 12 } }, open ? "\u25B2" : "\u25BC"))), open && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 12px", borderTop: "1px solid var(--rule)" } }, !isBlind && ski.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginBottom: 8 } }, ski.application), !isGlide && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Lbl, null, "Kick Rating 1\u201310"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement(ChevronIcon, { size: 14, color: "var(--ink-faint)", up: open }))), open && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 12px", borderTop: "1px solid var(--rule)" } }, !isBlind && ski.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginBottom: 8 } }, ski.application), !isGlide && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Lbl, null, "Kick Rating 1\u201310"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10 } }, /* @__PURE__ */ React.createElement(
       "input",
       {
         type: "range",
@@ -3799,6 +3949,7 @@ Outcome: Eliminated`;
       {
         label: "Feel Notes",
         value: ski.feelNotes,
+        mic: true,
         onChange: (v) => onRatingChange(ski.id, ratings, { feelNotes: v }),
         rows: 2,
         style: { marginBottom: 0 }
@@ -4109,7 +4260,21 @@ Outcome: Eliminated`;
           const s2 = activeSki.find((s) => s.id === id2);
           if (s1 && s2) setCurrentPair([id1, id2]);
         },
-        onRunnerUp: (id) => markRunnerUp(id)
+        onRunnerUp: (id) => markRunnerUp(id),
+        onSnowTemp: (val) => {
+          const f = useCelsius ? val * 9 / 5 + 32 : val;
+          upd({ snowTemps: [...test.snowTemps || [], { ts: nowStr(), tempF: f }] });
+        },
+        onAirTemp: (val) => {
+          const f = useCelsius ? val * 9 / 5 + 32 : val;
+          upd({ airTemps: [...test.airTemps || [], { ts: nowStr(), tempF: f }] });
+        },
+        onNote: (id, text) => {
+          const ski = (test.skis || []).find((x) => x.id === id);
+          if (!ski) return;
+          const prev = ski.feelNotes || "";
+          updSki(id, { feelNotes: prev ? prev + " \xB7 " + text : text });
+        }
       }
     ), activeSki.map((ski, i) => {
       const inPair = (currentPair || []).includes(ski.id);
@@ -4264,7 +4429,8 @@ Outcome: Eliminated`;
         value: test.testers || "",
         onChange: (v) => upd({ testers: v }),
         placeholder: "Names or initials of skiers conducting this test",
-        style: { marginBottom: 12 }
+        style: { marginBottom: 12 },
+        mic: true
       }
     ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, test.deadline ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement(CountdownBadge, { deadline: test.deadline }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--ink-faint)" } }, new Date(test.deadline).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), test.deadlineLabel ? ` \u2014 ${test.deadlineLabel}` : "")) : /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--ink-faint)" } }, "No deadline set")), /* @__PURE__ */ React.createElement(
       "button",
@@ -4273,7 +4439,7 @@ Outcome: Eliminated`;
         className: "btn-ghost",
         style: { fontSize: 13, padding: "6px 12px", minHeight: 34 }
       },
-      test.deadline ? "\u23F1 Edit" : "\u23F1 Set Deadline"
+      /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(TimerIcon, { size: 13, color: "currentColor" }), test.deadline ? "Edit Deadline" : "Set Deadline")
     )), fleets.filter((f) => f.category === test.category || test.category === "glide-out" && f.category === "glide").length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Load from Fleet Registry"), fleets.filter((f) => f.category === test.category || test.category === "glide-out" && f.category === "glide").map((fleet) => {
       const alreadyLoaded = fleet.skis.every(
         (fs) => (test.skis || []).some((s) => s.id === fs.id)
@@ -4449,7 +4615,8 @@ Outcome: Eliminated`;
         value: test.notes,
         onChange: (v) => upd({ notes: v }),
         placeholder: "Conditions, timing, observations\u2026",
-        rows: 5
+        rows: 5,
+        mic: true
       }
     ))), (tab === "tournament" || tab === "glideout") && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
       SnowTempFAB,
@@ -4493,7 +4660,7 @@ Outcome: Eliminated`;
         onSave: (photos) => onPhotoSave(ski.id, photos),
         onClose: () => setShowPhotos(false)
       }
-    ), /* @__PURE__ */ React.createElement(ACI, { label: "Product", value: product, onChange: setProduct, suggestions: vocab?.products || [] }), /* @__PURE__ */ React.createElement(ACI, { label: "Application", value: application, onChange: setApplication, suggestions: vocab?.applications || [] }), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: notes, onChange: setNotes, rows: 2 }), /* @__PURE__ */ React.createElement(TA, { label: "Feel Notes", value: feelNotes, onChange: setFeelNotes, rows: 2 }), ski.photos?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Photos (", ski.photos.length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, ski.photos.map((p) => /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement(ACI, { label: "Product", value: product, onChange: setProduct, suggestions: vocab?.products || [] }), /* @__PURE__ */ React.createElement(ACI, { label: "Application", value: application, onChange: setApplication, suggestions: vocab?.applications || [] }), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: notes, onChange: setNotes, rows: 2, mic: true }), /* @__PURE__ */ React.createElement(TA, { label: "Feel Notes", value: feelNotes, onChange: setFeelNotes, rows: 2, mic: true }), ski.photos?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Photos (", ski.photos.length, ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, ski.photos.map((p) => /* @__PURE__ */ React.createElement(
       "img",
       {
         key: p.id,
@@ -4584,7 +4751,7 @@ Outcome: Eliminated`;
         onClick: () => setTab(t.id)
       },
       t.label
-    ))), /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, tab === "tests" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(TI, { label: "Session Name", value: session.name, onChange: (v) => upd({ name: v }), mic: true }), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: session.notes, onChange: (v) => upd({ notes: v }), rows: 2 }), /* @__PURE__ */ React.createElement(
+    ))), /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, tab === "tests" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(TI, { label: "Session Name", value: session.name, onChange: (v) => upd({ name: v }), mic: true }), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: session.notes, onChange: (v) => upd({ notes: v }), rows: 2, mic: true }), /* @__PURE__ */ React.createElement(
       GuidanceBanner,
       {
         storageKey: "waxlab:guide:tests",
@@ -4604,9 +4771,32 @@ Outcome: Eliminated`;
           onClick: () => setDeadlinePickerTest(test),
           className: "btn-ghost",
           title: "Set deadline",
-          style: { fontSize: 14, padding: "6px 10px", minHeight: 34 }
+          style: {
+            fontSize: 14,
+            padding: "6px 10px",
+            minHeight: 34,
+            display: "flex",
+            alignItems: "center",
+            gap: 4
+          }
         },
-        "\u23F1"
+        /* @__PURE__ */ React.createElement(
+          "svg",
+          {
+            width: "14",
+            height: "14",
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            strokeWidth: "2",
+            strokeLinecap: "round",
+            strokeLinejoin: "round"
+          },
+          /* @__PURE__ */ React.createElement("circle", { cx: "12", cy: "13", r: "8" }),
+          /* @__PURE__ */ React.createElement("path", { d: "M12 9v4l2 2" }),
+          /* @__PURE__ */ React.createElement("path", { d: "M9 2h6" }),
+          /* @__PURE__ */ React.createElement("path", { d: "M19.5 6.5l-1-1" })
+        )
       ), /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -4725,12 +4915,12 @@ Outcome: Eliminated`;
       borderRadius: 8,
       padding: "12px 14px",
       borderLeft: "3px solid var(--blue)"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, "\u2744 Snow Temp"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)", lineHeight: 1.6 } }, "Insert probe into ski track at ", /* @__PURE__ */ React.createElement("strong", null, "45\xB0"), ", 2\u20133 cm deep. Wait 5\u201310 sec. Take 2\u20133 readings along the course.")), /* @__PURE__ */ React.createElement("div", { style: {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement(SnowIcon, { size: 14, color: "var(--blue)" }), "Snow Temp"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)", lineHeight: 1.6 } }, "Insert probe into ski track at ", /* @__PURE__ */ React.createElement("strong", null, "45\xB0"), ", 2\u20133 cm deep. Wait 5\u201310 sec. Take 2\u20133 readings along the course.")), /* @__PURE__ */ React.createElement("div", { style: {
       background: "var(--paper-2)",
       borderRadius: 8,
       padding: "12px 14px",
       borderLeft: "3px solid var(--amber)"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6 } }, "\u{1F321} Air Temp"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)", lineHeight: 1.6 } }, "Lay probe ", /* @__PURE__ */ React.createElement("strong", null, "flat on the snow surface"), " \u2014 in the classic track or skate lane. Out of sun. Wait 5\u201310 sec."))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 } }, /* @__PURE__ */ React.createElement(
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement(ThermIcon, { size: 14, color: "var(--amber)" }), "Air Temp"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-mid)", lineHeight: 1.6 } }, "Lay probe ", /* @__PURE__ */ React.createElement("strong", null, "flat on the snow surface"), " \u2014 in the classic track or skate lane. Out of sun. Wait 5\u201310 sec."))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 } }, /* @__PURE__ */ React.createElement(
       SnowTempFAB,
       {
         readings: session.snowTemps || [],
@@ -4759,7 +4949,7 @@ Outcome: Eliminated`;
           ...(t.airTemps || []).map((r) => ({ ...r, kind: "Air", testName: t.name || "" }))
         ])
       ].sort((a, b) => new Date(b.ts) - new Date(a.ts));
-      if (allReadings.length === 0) return /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", fontSize: 13, padding: "8px 0", lineHeight: 1.6 } }, "No readings yet. Use the buttons above or the \u2744 / \u{1F321} buttons inside any test.");
+      if (allReadings.length === 0) return /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", fontSize: 13, padding: "8px 0", lineHeight: 1.6 } }, "No readings yet. Use the buttons above, or the snow / air buttons inside any test.");
       return /* @__PURE__ */ React.createElement("div", null, allReadings.map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
         display: "flex",
         justifyContent: "space-between",
@@ -4767,7 +4957,7 @@ Outcome: Eliminated`;
         padding: "10px 0",
         borderBottom: "1px solid var(--rule)",
         gap: 8
-      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18 } }, r.kind === "Snow" ? "\u2744" : "\u{1F321}"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17, fontWeight: 700 } }, dispTemp(r.tempF, useCelsius)), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, r.kind === "Snow" ? /* @__PURE__ */ React.createElement(SnowIcon, { size: 18, color: "var(--blue)" }) : /* @__PURE__ */ React.createElement(ThermIcon, { size: 18, color: "var(--amber)" }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 17, fontWeight: 700 } }, dispTemp(r.tempF, useCelsius)), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
         fontSize: 10,
         color: r.kind === "Snow" ? "var(--blue)" : "var(--amber)",
         marginLeft: 8,
@@ -4891,19 +5081,21 @@ Outcome: Eliminated`;
           "Each Session has its own temperature log. Run multiple Tests inside a Session simultaneously \u2014 for example, a glide test and a kick test running at the same time with different skis."
         ]
       }
-    ), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Event Details"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement(TI, { label: "Event Name", value: event.name, onChange: (v) => upd({ name: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Race Name", value: event.raceName, onChange: (v) => upd({ raceName: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Location", value: event.location, onChange: (v) => upd({ location: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Date", value: event.date, onChange: (v) => upd({ date: v }), style: { marginBottom: 0 } })), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: event.notes, onChange: (v) => upd({ notes: v }), rows: 3, style: { marginTop: 12 } }), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Race Wax Selection"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Record which wax was actually applied for racing \u2014 may differ from the test winner based on projected conditions."), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Event Details"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement(TI, { label: "Event Name", value: event.name, onChange: (v) => upd({ name: v }), style: { marginBottom: 0 }, mic: true }), /* @__PURE__ */ React.createElement(TI, { label: "Race Name", value: event.raceName, onChange: (v) => upd({ raceName: v }), style: { marginBottom: 0 }, mic: true }), /* @__PURE__ */ React.createElement(TI, { label: "Location", value: event.location, onChange: (v) => upd({ location: v }), style: { marginBottom: 0 }, mic: true }), /* @__PURE__ */ React.createElement(TI, { label: "Date", value: event.date, onChange: (v) => upd({ date: v }), style: { marginBottom: 0 } })), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: event.notes, onChange: (v) => upd({ notes: v }), rows: 3, style: { marginTop: 12 }, mic: true }), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Race Wax Selection"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Record which wax was actually applied for racing \u2014 may differ from the test winner based on projected conditions."), /* @__PURE__ */ React.createElement(
       TI,
       {
         label: "Selected race wax",
         value: event.raceWaxChoice || "",
         onChange: (v) => upd({ raceWaxChoice: v }),
-        placeholder: "e.g. Swix HF10, Vauhti LF Blue\u2026"
+        placeholder: "e.g. Swix HF10, Vauhti LF Blue\u2026",
+        mic: true
       }
     ), /* @__PURE__ */ React.createElement(
       TA,
       {
         label: "Reason for selection",
         value: event.raceWaxReason || "",
+        mic: true,
         onChange: (v) => upd({ raceWaxReason: v }),
         rows: 3,
         placeholder: "e.g. Forecast softening to -2\xB0C by race time, chose 2nd-place test for better wet glide\u2026"
@@ -4913,6 +5105,7 @@ Outcome: Eliminated`;
       {
         label: "Post-race athlete feedback",
         value: event.raceFeedback || "",
+        mic: true,
         onChange: (v) => upd({ raceFeedback: v }),
         rows: 3,
         placeholder: "How did the race wax perform? Athlete feedback, start order notes\u2026"
@@ -5135,13 +5328,13 @@ Outcome: Eliminated`;
     ))));
   }
   const STEPS = [
-    { icon: "\u2744", title: "Welcome to WaxLab", body: "A wax testing app for Nordic ski racing staff. Works on any phone. The lead sets up events \u2014 the whole team collaborates and sees results live." },
-    { icon: "\u{1F4CB}", title: "Event \u2192 Session \u2192 Test", body: "An Event is a race day. Sessions are time blocks. Each Session holds concurrent Tests \u2014 glide and kick can run simultaneously." },
-    { icon: "\u{1F3C6}", title: "Running a tournament", body: "Add skis in Fleet, then head to Tournament. Advance or Eliminate skis head-to-head. Swipe right to advance, left to eliminate. Rate skis right on the card." },
-    { icon: "\u{1F648}", title: "Blind testing", body: "Enable Blind Mode in Fleet. Testers see only ski IDs \u2014 no product names. Reveal after the winner is declared to eliminate bias." },
-    { icon: "\u{1F4CA}", title: "Conditions & trends", body: "Log weather via GPS or venue search. Snow temp is always one tap away with the \u2744 button. Trend tab shows how conditions changed across sessions." },
-    { icon: "\u{1F3C5}", title: "Race Day summary", body: "The Race Day tab shows all winners with conditions and ratings \u2014 ready to read in the wax cabin or print and share before the start." },
-    { icon: "\u{1F4BE}", title: "Autocomplete & export", body: "Product names autocomplete from a shared global dictionary. Export any event as Excel. Toggle \xB0F / \xB0C anywhere with the unit pill." }
+    { icon: /* @__PURE__ */ React.createElement("svg", { width: "44", height: "44", viewBox: "0 0 24 24", fill: "none", stroke: "var(--blue)", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M12 2L8 6H4l2 4-4 2 4 2-2 4h4l4 4 4-4h4l-2-4 4-2-4-2 2-4h-4z" })), title: "Welcome to WaxLab", body: "A wax testing app for Nordic ski racing staff. Works on any phone. The lead sets up events \u2014 the whole team collaborates and sees results live." },
+    { icon: /* @__PURE__ */ React.createElement("svg", { width: "44", height: "44", viewBox: "0 0 24 24", fill: "none", stroke: "var(--ink)", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }), /* @__PURE__ */ React.createElement("path", { d: "M3 9h18" }), /* @__PURE__ */ React.createElement("path", { d: "M9 21V9" })), title: "Event \u2192 Session \u2192 Test", body: "An Event is a race day. Sessions are time blocks. Each Session holds concurrent Tests \u2014 glide and kick can run simultaneously." },
+    { icon: /* @__PURE__ */ React.createElement("svg", { width: "44", height: "44", viewBox: "0 0 24 24", fill: "none", stroke: "var(--amber)", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" })), title: "Running a tournament", body: "Add skis in Fleet, then head to Tournament. Advance or Eliminate skis head-to-head. Swipe right to advance, left to eliminate. Rate skis right on the card." },
+    { icon: /* @__PURE__ */ React.createElement("svg", { width: "44", height: "44", viewBox: "0 0 24 24", fill: "none", stroke: "var(--ink)", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M17.94 17.94A10.07 10.07 0 0 1 12 20a10 10 0 0 1-7.94-4" }), /* @__PURE__ */ React.createElement("path", { d: "M2 2l20 20" }), /* @__PURE__ */ React.createElement("path", { d: "M7.94 7.94A10.07 10.07 0 0 1 12 4a10 10 0 0 1 7.94 4" }), /* @__PURE__ */ React.createElement("path", { d: "M12 12a3 3 0 0 1-3-3" })), title: "Blind testing", body: "Enable Blind Mode in Fleet. Testers see only ski IDs \u2014 no product names. Reveal after the winner is declared to eliminate bias." },
+    { icon: /* @__PURE__ */ React.createElement("svg", { width: "44", height: "44", viewBox: "0 0 24 24", fill: "none", stroke: "var(--blue)", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("path", { d: "M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" })), title: "Conditions & trends", body: "Log weather via GPS or venue search. Snow temp is always one tap away with the \u2744 button. Trend tab shows how conditions changed across sessions." },
+    { icon: /* @__PURE__ */ React.createElement("svg", { width: "44", height: "44", viewBox: "0 0 24 24", fill: "none", stroke: "var(--green)", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "22 12 18 12 15 21 9 3 6 12 2 12" })), title: "Race Day summary", body: "The Race Day tab shows all winners with conditions and ratings \u2014 ready to read in the wax cabin or print and share before the start." },
+    { icon: /* @__PURE__ */ React.createElement("svg", { width: "44", height: "44", viewBox: "0 0 24 24", fill: "none", stroke: "var(--ink)", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" }, /* @__PURE__ */ React.createElement("polyline", { points: "21 15 21 19 3 19 3 15" }), /* @__PURE__ */ React.createElement("path", { d: "M7 10l5 5 5-5" }), /* @__PURE__ */ React.createElement("path", { d: "M12 15V3" })), title: "Autocomplete & export", body: "Product names autocomplete from a shared global dictionary. Export any event as Excel. Toggle \xB0F / \xB0C anywhere with the unit pill." }
   ];
   function OnboardingOverlay({ onDone }) {
     const [step, setStep] = useState(0);
@@ -5155,7 +5348,7 @@ Outcome: Eliminated`;
       alignItems: "flex-end",
       justifyContent: "center",
       padding: "0 0 0"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--paper)", width: "100%", maxWidth: 480, borderRadius: "16px 16px 0 0", padding: "28px 24px 40px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 44, textAlign: "center", marginBottom: 12 } }, s.icon), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 800, textAlign: "center", marginBottom: 8 } }, s.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, color: "var(--ink-mid)", lineHeight: 1.65, textAlign: "center", marginBottom: 24 } }, s.body), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 6, marginBottom: 20 } }, STEPS.map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--paper)", width: "100%", maxWidth: 480, borderRadius: "16px 16px 0 0", padding: "28px 24px 40px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "center", marginBottom: 12 } }, s.icon), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 800, textAlign: "center", marginBottom: 8 } }, s.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, color: "var(--ink-mid)", lineHeight: 1.65, textAlign: "center", marginBottom: 24 } }, s.body), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 6, marginBottom: 20 } }, STEPS.map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
       width: 7,
       height: 7,
       borderRadius: "50%",
@@ -5237,12 +5430,17 @@ Outcome: Eliminated`;
     const [copied, setCopied] = useState(false);
     const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
     const statusColor = isOffline ? "var(--ink-faint)" : syncStatus === "saving" ? "var(--amber)" : syncStatus === "error" ? "var(--red)" : "var(--green)";
-    const statusDot = isOffline ? "\u25CB" : syncStatus === "saving" ? "\u2191" : syncStatus === "error" ? "!" : "\u2713";
     function copy() {
       navigator.clipboard.writeText(window.location.href).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2e3);
       });
+    }
+    function StatusDot() {
+      if (isOffline) return /* @__PURE__ */ React.createElement(WifiOffIcon, { size: 12, color: "var(--ink-faint)" });
+      if (syncStatus === "saving") return /* @__PURE__ */ React.createElement(ArrowUpIcon, { size: 12, color: "var(--amber)" });
+      if (syncStatus === "error") return /* @__PURE__ */ React.createElement(EliminateIcon, { size: 12, color: "var(--red)" });
+      return /* @__PURE__ */ React.createElement(CheckIcon, { size: 12, color: "var(--green)" });
     }
     return /* @__PURE__ */ React.createElement("div", { className: "team-bar no-print" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 12, fontWeight: 700, letterSpacing: "0.1em" } }, teamCode), supabaseConfigured && /* @__PURE__ */ React.createElement(
       "span",
@@ -5250,7 +5448,7 @@ Outcome: Eliminated`;
         className: "mono",
         style: { fontSize: 10, color: statusColor, display: "flex", alignItems: "center", gap: 3 }
       },
-      statusDot,
+      /* @__PURE__ */ React.createElement(StatusDot, null),
       /* @__PURE__ */ React.createElement("span", null, isOffline ? "offline" : syncStatus === "saving" ? "saving\u2026" : syncStatus === "error" ? "sync error" : syncStatus === "saved" ? "saved" : "")
     ), !supabaseConfigured && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, "local only")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(UnitPill, { useCelsius, onChange: onUnitToggle }), /* @__PURE__ */ React.createElement(
       "button",
