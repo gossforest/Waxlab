@@ -4968,6 +4968,7 @@ Outcome: Eliminated`;
   }
   function EventView({ event, onUpdate, onBack, onDelete, vocab, onVocabAdd, allEvents, useCelsius, onUnitToggle, teamCode, fleets = [], activeSessionId, onSetActiveSession, activeTestId, onSetActiveTest }) {
     const [tab, setTab] = useState("sessions");
+    const [deleteToast, setDeleteToast] = useState(false);
     const setActiveSessionId = onSetActiveSession || (() => {
     });
     function upd(patch) {
