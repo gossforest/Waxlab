@@ -63,10 +63,13 @@ var WaxApp = (() => {
       if (error || !data) return;
       const remote = data.map((r) => r.data).filter(Boolean);
       if (!remote.length) return;
+      const deleted = lsGet(`waxlab:deleted:${teamCode}`) || [];
+      const deletedSet = new Set(deleted);
       const local = lsGet(`waxlab:events:${teamCode}`) || [];
       const localMap = Object.fromEntries(local.map((e) => [e.id, e]));
       let changed = false;
       remote.forEach((ev) => {
+        if (deletedSet.has(ev.id)) return;
         if (!localMap[ev.id]) {
           localMap[ev.id] = ev;
           changed = true;
@@ -108,15 +111,13 @@ var WaxApp = (() => {
     return true;
   }
   async function deleteEventDB(teamCode, eventId) {
-    if (db) {
-      try {
-        await db.from("waxlab_events").delete().eq("id", eventId);
-        return;
-      } catch {
-      }
-    }
     const ex = lsGet(`waxlab:events:${teamCode}`) || [];
     lsSet(`waxlab:events:${teamCode}`, ex.filter((e) => e.id !== eventId));
+    const deleted = lsGet(`waxlab:deleted:${teamCode}`) || [];
+    if (!deleted.includes(eventId)) lsSet(`waxlab:deleted:${teamCode}`, [...deleted, eventId]);
+    if (db) {
+      db.from("waxlab_events").delete().eq("id", eventId).catch((e) => console.warn("deleteEvent bg:", e.message));
+    }
   }
   async function loadVocab() {
     return lsGet("waxlab:vocab:global") || {};
@@ -4722,8 +4723,8 @@ Outcome: Eliminated`;
       SnowTempFAB,
       {
         readings: session.snowTemps || [],
-        onAdd: (r) => upd({ snowTemps: [...session.snowTemps || [], r] }),
-        onDelete: (i) => upd({ snowTemps: (session.snowTemps || []).filter((_, idx) => idx !== i) }),
+        onAdd: (r) => onUpdate({ ...session, snowTemps: [...session.snowTemps || [], r] }),
+        onDelete: (i) => onUpdate({ ...session, snowTemps: (session.snowTemps || []).filter((_, idx) => idx !== i) }),
         useCelsius,
         onUnitToggle,
         fabClass: ""
@@ -4732,8 +4733,8 @@ Outcome: Eliminated`;
       AirTempFAB,
       {
         readings: session.airTemps || [],
-        onAdd: (r) => upd({ airTemps: [...session.airTemps || [], r] }),
-        onDelete: (i) => upd({ airTemps: (session.airTemps || []).filter((_, idx) => idx !== i) }),
+        onAdd: (r) => onUpdate({ ...session, airTemps: [...session.airTemps || [], r] }),
+        onDelete: (i) => onUpdate({ ...session, airTemps: (session.airTemps || []).filter((_, idx) => idx !== i) }),
         useCelsius,
         onUnitToggle,
         fabClass: ""
@@ -4810,7 +4811,6 @@ Outcome: Eliminated`;
       { id: "raceday", label: "Race Day" },
       { id: "trend", label: "Trend" },
       { id: "compare", label: "Compare" },
-      { id: "info", label: "Info" },
       { id: "export", label: "Export" }
     ];
     return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", maxWidth: 200 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, event.name), event.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, event.location)), /* @__PURE__ */ React.createElement(
@@ -4871,7 +4871,7 @@ Outcome: Eliminated`;
         style: { width: "100%", marginTop: 8, padding: "14px 0", fontSize: 14, fontWeight: 600 }
       },
       "+ New Session"
-    ), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Event Details"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement(TI, { label: "Event Name", value: event.name, onChange: (v) => upd({ name: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Race Name", value: event.raceName, onChange: (v) => upd({ raceName: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Location", value: event.location, onChange: (v) => upd({ location: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Date", value: event.date, onChange: (v) => upd({ date: v }), style: { marginBottom: 0 } })), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: event.notes, onChange: (v) => upd({ notes: v }), rows: 3, style: { marginTop: 12 } })), tab === "raceday" && /* @__PURE__ */ React.createElement(RaceDaySummary, { event, useCelsius }), tab === "trend" && /* @__PURE__ */ React.createElement(ConditionsTrend, { events: [event], useCelsius }), tab === "compare" && /* @__PURE__ */ React.createElement(CrossEventComparison, { events: allEvents, useCelsius }), tab === "info" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(TI, { label: "Event Name", value: event.name, onChange: (v) => upd({ name: v }) }), /* @__PURE__ */ React.createElement(TI, { label: "Race Name", value: event.raceName, onChange: (v) => upd({ raceName: v }) }), /* @__PURE__ */ React.createElement(TI, { label: "Location", value: event.location, onChange: (v) => upd({ location: v }) }), /* @__PURE__ */ React.createElement(TI, { label: "Date", value: event.date, onChange: (v) => upd({ date: v }) }), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: event.notes, onChange: (v) => upd({ notes: v }), rows: 4 }), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Race Wax Selection"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Record which wax was actually applied for racing \u2014 this may differ from the test winner based on projected conditions."), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Event Details"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement(TI, { label: "Event Name", value: event.name, onChange: (v) => upd({ name: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Race Name", value: event.raceName, onChange: (v) => upd({ raceName: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Location", value: event.location, onChange: (v) => upd({ location: v }), style: { marginBottom: 0 } }), /* @__PURE__ */ React.createElement(TI, { label: "Date", value: event.date, onChange: (v) => upd({ date: v }), style: { marginBottom: 0 } })), /* @__PURE__ */ React.createElement(TA, { label: "Notes", value: event.notes, onChange: (v) => upd({ notes: v }), rows: 3, style: { marginTop: 12 } }), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Race Wax Selection"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Record which wax was actually applied for racing \u2014 may differ from the test winner based on projected conditions."), /* @__PURE__ */ React.createElement(
       TI,
       {
         label: "Selected race wax",
@@ -4886,7 +4886,7 @@ Outcome: Eliminated`;
         value: event.raceWaxReason || "",
         onChange: (v) => upd({ raceWaxReason: v }),
         rows: 3,
-        placeholder: "e.g. Forecast softening to -2\xB0C by race time, chose test 2nd-place for better wet glide\u2026"
+        placeholder: "e.g. Forecast softening to -2\xB0C by race time, chose 2nd-place test for better wet glide\u2026"
       }
     ), /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(
       TA,
@@ -4897,7 +4897,7 @@ Outcome: Eliminated`;
         rows: 3,
         placeholder: "How did the race wax perform? Athlete feedback, start order notes\u2026"
       }
-    )), tab === "export" && /* @__PURE__ */ React.createElement(ExportPanel, { event })));
+    )), tab === "raceday" && /* @__PURE__ */ React.createElement(RaceDaySummary, { event, useCelsius }), tab === "trend" && /* @__PURE__ */ React.createElement(ConditionsTrend, { events: [event], useCelsius }), tab === "compare" && /* @__PURE__ */ React.createElement(CrossEventComparison, { events: allEvents, useCelsius }), tab === "export" && /* @__PURE__ */ React.createElement(ExportPanel, { event })));
   }
   function Home({ events, onNew, onOpen, useCelsius, teamCode, onRestore, onProducts, syncStatus, online }) {
     const sorted = [...events].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
