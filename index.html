@@ -5354,6 +5354,7 @@ Outcome: Eliminated`;
     const [undoVisible, setUndoVisible] = useState(false);
     const [currentPair, setCurrentPair] = useState(null);
     const [pairActed, setPairActed] = useState(/* @__PURE__ */ new Set());
+    const [pendingResult, setPendingResult] = useState(null);
     const [newId, setNewId] = useState("");
     const [newProduct, setNewProduct] = useState("");
     const [newApp, setNewApp] = useState("");
@@ -5392,29 +5393,71 @@ Outcome: Eliminated`;
       setUndoStack((p) => p.slice(1));
       setUndoVisible(false);
     }
-    function advance(skiId) {
+    function commitPairResult(winnerId, loserId, loserResult) {
       const snap = [...test.skis || []];
-      const remaining = activeSki.filter((s) => s.id !== skiId);
-      const newSkis = (test.skis || []).map((s) => s.id === skiId ? { ...s, standing: remaining.length === 0 ? "Winner" : "Active" } : s);
-      const opponentId = currentPair ? currentPair.find((id) => id !== skiId) : null;
       const rs = computeRoundState(test.rounds || [], test.skis || []);
       const roundNum = rs.currentRound;
-      const newRound = { roundNum, skiA: skiId, skiB: opponentId || null, winner: skiId, loser: null };
+      const runnerUp = loserResult === "2nd";
+      const newRound = {
+        roundNum,
+        skiA: winnerId,
+        skiB: loserId,
+        winner: winnerId,
+        loser: loserId,
+        ...runnerUp ? { runnerUp: true } : {}
+      };
+      const newSkis = (test.skis || []).map((s) => {
+        if (s.id === winnerId) {
+          const remainingActive = activeSki.filter((x) => x.id !== loserId && x.id !== winnerId);
+          return { ...s, standing: remainingActive.length === 0 && !runnerUp ? "Winner" : "Active" };
+        }
+        if (s.id === loserId) {
+          return { ...s, standing: runnerUp ? "Active" : "Eliminated" };
+        }
+        return s;
+      });
       upd({ skis: newSkis, rounds: [...test.rounds || [], newRound] });
-      pushUndo(snap, `Advanced ${skiId}`);
+      pushUndo(snap, `${winnerId} advanced over ${loserId}`);
+      setPendingResult(null);
+    }
+    function advance(skiId) {
+      const opponentId = currentPair ? currentPair.find((id) => id !== skiId) : null;
+      if (!opponentId) return;
+      if (pendingResult && pendingResult.skiId === opponentId) {
+        const oRes = pendingResult.result;
+        if (oRes === "adv") {
+          commitPairResult(skiId, opponentId, "2nd");
+        } else if (oRes === "elim" || oRes === "2nd") {
+          commitPairResult(skiId, opponentId, oRes);
+        }
+      } else {
+        setPendingResult({ skiId, result: "adv" });
+      }
       setPairActed((prev) => /* @__PURE__ */ new Set([...prev, skiId]));
     }
     function eliminate(skiId) {
-      const snap = [...test.skis || []];
       const opponentId = currentPair ? currentPair.find((id) => id !== skiId) : null;
-      const rs = computeRoundState(test.rounds || [], test.skis || []);
-      const roundNum = rs.currentRound;
-      const newRound = { roundNum, skiA: opponentId || null, skiB: skiId, winner: opponentId || null, loser: skiId };
-      upd({
-        skis: (test.skis || []).map((s) => s.id === skiId ? { ...s, standing: "Eliminated" } : s),
-        rounds: [...test.rounds || [], newRound]
-      });
-      pushUndo(snap, `Eliminated ${skiId}`);
+      if (!opponentId) return;
+      if (pendingResult && pendingResult.skiId === opponentId) {
+        const oRes = pendingResult.result;
+        if (oRes === "adv") {
+          commitPairResult(opponentId, skiId, "elim");
+        } else if (oRes === "2nd") {
+          commitPairResult(opponentId, skiId, "elim");
+        } else if (oRes === "elim") {
+          const snap = [...test.skis || []];
+          const rs = computeRoundState(test.rounds || [], test.skis || []);
+          const roundNum = rs.currentRound;
+          upd({
+            skis: (test.skis || []).map((s) => s.id === skiId || s.id === opponentId ? { ...s, standing: "Tied" } : s),
+            rounds: [...test.rounds || [], { roundNum, skiA: opponentId, skiB: skiId, winner: null, loser: null, tie: true }]
+          });
+          pushUndo(snap, "Both eliminated \u2014 recorded as tie");
+          setPendingResult(null);
+        }
+      } else {
+        setPendingResult({ skiId, result: "elim" });
+      }
       setPairActed((prev) => /* @__PURE__ */ new Set([...prev, skiId]));
     }
     function restore(skiId) {
@@ -5485,21 +5528,28 @@ Outcome: Eliminated`;
     }
     function markRunnerUp(skiId) {
       if (!currentPair) return;
-      const snap = [...test.skis || []];
       const opponentId = currentPair.find((id) => id !== skiId);
       if (!opponentId) return;
-      const rs = computeRoundState(test.rounds || [], test.skis || []);
-      const roundNum = rs.currentRound;
-      const newRound = {
-        roundNum,
-        skiA: opponentId,
-        skiB: skiId,
-        winner: opponentId,
-        loser: skiId,
-        runnerUp: true
-      };
-      upd({ rounds: [...test.rounds || [], newRound] });
-      pushUndo(snap, `${skiId} placed 2nd`);
+      if (pendingResult && pendingResult.skiId === opponentId) {
+        const oRes = pendingResult.result;
+        if (oRes === "adv") {
+          commitPairResult(opponentId, skiId, "2nd");
+        } else if (oRes === "elim") {
+          commitPairResult(skiId, opponentId, "elim");
+        } else if (oRes === "2nd") {
+          const snap = [...test.skis || []];
+          const rs = computeRoundState(test.rounds || [], test.skis || []);
+          const roundNum = rs.currentRound;
+          upd({
+            skis: (test.skis || []).map((s) => s.id === skiId || s.id === opponentId ? { ...s, standing: "Tied" } : s),
+            rounds: [...test.rounds || [], { roundNum, skiA: opponentId, skiB: skiId, winner: null, loser: null, tie: true }]
+          });
+          pushUndo(snap, "Both 2nd \u2014 recorded as tie");
+          setPendingResult(null);
+        }
+      } else {
+        setPendingResult({ skiId, result: "2nd" });
+      }
       setPairActed((prev) => /* @__PURE__ */ new Set([...prev, skiId]));
     }
     function declareTie() {
@@ -5525,6 +5575,7 @@ Outcome: Eliminated`;
     function selectPair(ids) {
       setCurrentPair(ids);
       setPairActed(/* @__PURE__ */ new Set());
+      setPendingResult(null);
     }
     function suggestPair(rs) {
       const unpaired = activeSki.filter((s) => rs && !rs.pairedThisRound.has(s.id));
@@ -5904,6 +5955,7 @@ Outcome: Eliminated`;
           onClick: () => {
             setCurrentPair(null);
             setPairActed(/* @__PURE__ */ new Set());
+            setPendingResult(null);
           },
           style: {
             background: "transparent",
@@ -5940,8 +5992,7 @@ Outcome: Eliminated`;
           className: "btn-ghost",
           style: { fontSize: 12, padding: "5px 12px", minHeight: 32 },
           onClick: () => {
-            setCurrentPair([nextSuggestion[0].id, nextSuggestion[1].id]);
-            setPairActed(/* @__PURE__ */ new Set());
+            selectPair([nextSuggestion[0].id, nextSuggestion[1].id]);
           }
         },
         "Next: ",
@@ -5955,8 +6006,7 @@ Outcome: Eliminated`;
           className: "btn-ghost",
           style: { fontSize: 12, padding: "5px 12px", minHeight: 32 },
           onClick: () => {
-            setCurrentPair(null);
-            setPairActed(/* @__PURE__ */ new Set());
+            selectPair(null);
           }
         },
         "Done \xD7"
