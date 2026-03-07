@@ -3428,7 +3428,7 @@ Outcome: Eliminated`;
     }
     const dateWarning = coverageWarning();
     const VW = 400;
-    const PL = 38;
+    const PL = 30;
     const PR = 6;
     const GW = VW - PL - PR;
     function makeXScale(rows) {
@@ -3471,7 +3471,7 @@ Outcome: Eliminated`;
           x: l.x,
           y: 14,
           textAnchor: "middle",
-          fontSize: l.isMidnight ? "9" : "8",
+          fontSize: l.isMidnight ? "6.5" : "6",
           fontWeight: l.isMidnight ? "600" : "400",
           fill: l.isMidnight ? "var(--ink-mid)" : "var(--ink-faint)",
           fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
@@ -3483,7 +3483,7 @@ Outcome: Eliminated`;
           x: nowX,
           y: 14,
           textAnchor: "middle",
-          fontSize: "8",
+          fontSize: "6",
           fontWeight: "700",
           fill: "var(--ink)",
           fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
@@ -3562,7 +3562,7 @@ Outcome: Eliminated`;
             x: PL + GW - 2,
             y: freezeY - 2,
             textAnchor: "end",
-            fontSize: "7",
+            fontSize: "5.5",
             fill: "var(--ink-faint)",
             fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
           },
@@ -3597,10 +3597,10 @@ Outcome: Eliminated`;
           "text",
           {
             key: i,
-            x: PL - 4,
-            y: yOf(v) + 3,
+            x: PL - 3,
+            y: yOf(v) + 2.5,
             textAnchor: "end",
-            fontSize: "8",
+            fontSize: "6",
             fill: "var(--ink-faint)",
             fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
           },
@@ -3647,7 +3647,7 @@ Outcome: Eliminated`;
             x: PL + GW / 2,
             y: PT + GH / 2 + 3,
             textAnchor: "middle",
-            fontSize: "8",
+            fontSize: "6",
             fill: "var(--ink-faint)",
             fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
           },
@@ -3700,10 +3700,10 @@ Outcome: Eliminated`;
       }), /* @__PURE__ */ React.createElement(
         "text",
         {
-          x: PL - 4,
+          x: PL - 3,
           y: PT + 5,
           textAnchor: "end",
-          fontSize: "7",
+          fontSize: "5.5",
           fill: "var(--ink-faint)",
           fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
         },
@@ -3711,10 +3711,10 @@ Outcome: Eliminated`;
       ), /* @__PURE__ */ React.createElement(
         "text",
         {
-          x: PL - 4,
+          x: PL - 3,
           y: PT + GH,
           textAnchor: "end",
-          fontSize: "7",
+          fontSize: "5.5",
           fill: "var(--ink-faint)",
           fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
         },
@@ -3722,30 +3722,119 @@ Outcome: Eliminated`;
       ), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT, x2: PL, y2: PT + GH, stroke: "var(--rule)", strokeWidth: "1" }), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT + GH, x2: PL + GW, y2: PT + GH, stroke: "var(--rule)", strokeWidth: "0.5" }));
     }
     function ForecastStats({ rows, useCelsius: useCelsius2 }) {
-      const temps = rows.map((r) => useCelsius2 ? fToC(r.tempF) : r.tempF).filter((v) => v != null);
-      const lo = Math.min(...temps), hi = Math.max(...temps);
-      const totalPrecip = rows.reduce((s, r) => s + (r.precip || 0), 0);
-      const snowHours = rows.filter((r) => hasSnow(r.code)).length;
-      const rainHours = rows.filter((r) => hasRain(r.code)).length;
-      const maxWind = Math.max(...rows.map((r) => r.windMph || 0));
+      const now = Date.now();
+      const past = rows.filter((r) => new Date(r.time).getTime() <= now);
+      const next = rows.filter((r) => new Date(r.time).getTime() > now);
       const unit = useCelsius2 ? "\xB0C" : "\xB0F";
-      const stats = [
-        { k: "HI / LO", v: `${hi}${unit} / ${lo}${unit}` },
-        { k: "PRECIP", v: totalPrecip > 0.1 ? `${totalPrecip.toFixed(1)} mm` : "None" },
-        { k: "WIND", v: maxWind > 1 ? `${maxWind} mph` : "Calm" },
-        { k: "SNOW", v: snowHours > 0 ? `${snowHours}h` : "\u2014" },
-        { k: "RAIN", v: rainHours > 0 ? `${rainHours}h` : "\u2014" }
-      ];
-      return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 0, borderTop: "1px solid var(--rule)", marginTop: 0 } }, stats.map(({ k, v }, i) => /* @__PURE__ */ React.createElement("div", { key: k, style: {
+      function windowStats(subset) {
+        if (!subset.length) return null;
+        const temps = subset.map((r) => useCelsius2 ? fToC(r.tempF) : r.tempF).filter((v) => v != null);
+        const lo = temps.length ? Math.min(...temps) : null;
+        const hi = temps.length ? Math.max(...temps) : null;
+        const totalPrecip = subset.reduce((s, r) => s + (r.precip || 0), 0);
+        const maxWind = Math.max(...subset.map((r) => r.windMph || 0));
+        const snowH = subset.filter((r) => hasSnow(r.code)).length;
+        const rainH = subset.filter((r) => hasRain(r.code)).length;
+        const precipTypes = [
+          snowH > 0 ? `${snowH}h snow` : null,
+          rainH > 0 ? `${rainH}h rain` : null
+        ].filter(Boolean).join(", ") || "None";
+        return { lo, hi, totalPrecip, maxWind, precipTypes };
+      }
+      const p = windowStats(past);
+      const n = windowStats(next);
+      function StatCell({ label, value, sub, last }) {
+        return /* @__PURE__ */ React.createElement("div", { style: {
+          flex: 1,
+          padding: "8px 10px",
+          borderRight: last ? "none" : "1px solid var(--rule)"
+        } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
+          fontSize: 7,
+          color: "var(--ink-faint)",
+          letterSpacing: "0.07em",
+          marginBottom: 2,
+          textTransform: "uppercase"
+        } }, label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700, lineHeight: 1.2 } }, value), sub && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--ink-faint)", marginTop: 2, lineHeight: 1.3 } }, sub));
+      }
+      return /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 30, flexShrink: 0 } }), ["Hi / Lo", "Precip", "Max Wind"].map((h, i) => /* @__PURE__ */ React.createElement("div", { key: h, style: {
         flex: 1,
-        padding: "8px 0 8px 10px",
-        borderRight: i < stats.length - 1 ? "1px solid var(--rule)" : "none"
-      } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
-        fontSize: 8,
+        padding: "5px 10px",
+        borderLeft: "1px solid var(--rule)"
+      } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+        fontSize: 7,
         color: "var(--ink-faint)",
-        letterSpacing: "0.08em",
-        marginBottom: 3
-      } }, k), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, lineHeight: 1 } }, v))));
+        letterSpacing: "0.07em",
+        textTransform: "uppercase"
+      } }, h)))), p && /* @__PURE__ */ React.createElement("div", { style: {
+        display: "flex",
+        alignItems: "stretch",
+        borderBottom: "1px solid var(--rule)",
+        opacity: past.length ? 1 : 0.4
+      } }, /* @__PURE__ */ React.createElement("div", { style: {
+        width: 30,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRight: "1px solid var(--rule)"
+      } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+        fontSize: 6.5,
+        color: "var(--ink-faint)",
+        letterSpacing: "0.06em",
+        writingMode: "vertical-rl",
+        textTransform: "uppercase",
+        transform: "rotate(180deg)"
+      } }, "past 24h")), /* @__PURE__ */ React.createElement(
+        StatCell,
+        {
+          label: past.length > 0 ? `${past.length}h recorded` : "no data",
+          value: p.lo != null ? `${p.hi}${unit} / ${p.lo}${unit}` : "\u2014"
+        }
+      ), /* @__PURE__ */ React.createElement(
+        StatCell,
+        {
+          value: p.totalPrecip > 0.1 ? `${p.totalPrecip.toFixed(1)} mm` : "None",
+          sub: p.totalPrecip > 0.1 ? p.precipTypes : null
+        }
+      ), /* @__PURE__ */ React.createElement(
+        StatCell,
+        {
+          last: true,
+          value: p.maxWind > 1 ? `${p.maxWind} mph` : "Calm"
+        }
+      )), n && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "stretch" } }, /* @__PURE__ */ React.createElement("div", { style: {
+        width: 30,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRight: "1px solid var(--rule)"
+      } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+        fontSize: 6.5,
+        color: "var(--ink-faint)",
+        letterSpacing: "0.06em",
+        writingMode: "vertical-rl",
+        textTransform: "uppercase",
+        transform: "rotate(180deg)"
+      } }, "next 24h")), /* @__PURE__ */ React.createElement(
+        StatCell,
+        {
+          label: `${next.length}h forecast`,
+          value: n.lo != null ? `${n.hi}${unit} / ${n.lo}${unit}` : "\u2014"
+        }
+      ), /* @__PURE__ */ React.createElement(
+        StatCell,
+        {
+          value: n.totalPrecip > 0.1 ? `${n.totalPrecip.toFixed(1)} mm` : "None",
+          sub: n.totalPrecip > 0.1 ? n.precipTypes : null
+        }
+      ), /* @__PURE__ */ React.createElement(
+        StatCell,
+        {
+          last: true,
+          value: n.maxWind > 1 ? `${n.maxWind} mph` : "Calm"
+        }
+      )));
     }
     const hasData = fc?.hourly?.length > 0;
     return /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginTop: 16, overflow: "hidden" } }, /* @__PURE__ */ React.createElement(
