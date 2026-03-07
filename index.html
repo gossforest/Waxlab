@@ -5235,7 +5235,6 @@ Outcome: Eliminated`;
       const newRound = { roundNum, skiA: skiId, skiB: opponentId || null, winner: skiId, loser: opponentId || null };
       upd({ skis: newSkis, rounds: [...test.rounds || [], newRound] });
       pushUndo(snap, `Advanced ${skiId}`);
-      setCurrentPair(null);
     }
     function eliminate(skiId) {
       const snap = [...test.skis || []];
@@ -5247,7 +5246,6 @@ Outcome: Eliminated`;
         rounds: [...test.rounds || [], newRound]
       });
       pushUndo(snap, `Eliminated ${skiId}`);
-      setCurrentPair(null);
     }
     function restore(skiId) {
       updSki(skiId, { standing: "Active" });
@@ -5315,11 +5313,17 @@ Outcome: Eliminated`;
       updSki(skiId, { photos });
     }
     function suggestPair() {
+      const testedPairs = new Set((test.rounds || []).map((r) => {
+        const a = r.skiA || r.winner || "", b = r.skiB || r.loser || "";
+        return [a, b].sort().join("|");
+      }));
+      const untested = (a, b) => !testedPairs.has([a.id, b.id].sort().join("|"));
       const rated = activeSki.filter((s) => s.ratings?.glide != null || s.ratings?.kick != null && !isGlide);
       if (rated.length >= 2) {
         let best = null, bestDiff = Infinity;
         for (let i = 0; i < rated.length; i++) for (let j = i + 1; j < rated.length; j++) {
           const a = rated[i], b = rated[j];
+          if (!untested(a, b)) continue;
           const sa = isGlide ? a.ratings.glide : a.ratings.kick + a.ratings.glide;
           const sb = isGlide ? b.ratings.glide : b.ratings.kick + b.ratings.glide;
           const d = Math.abs(sa - sb);
@@ -5328,7 +5332,10 @@ Outcome: Eliminated`;
             best = [a, b];
           }
         }
-        return best;
+        if (best) return best;
+      }
+      for (let i = 0; i < activeSki.length; i++) for (let j = i + 1; j < activeSki.length; j++) {
+        if (untested(activeSki[i], activeSki[j])) return [activeSki[i], activeSki[j]];
       }
       return activeSki.length >= 2 ? [activeSki[0], activeSki[1]] : null;
     }
@@ -5531,8 +5538,8 @@ Outcome: Eliminated`;
       }
     ), currentPair && currentPair.length === 2 && !winner && (() => {
       const [idA, idB] = currentPair;
-      const skiA = activeSki.find((s) => s.id === idA);
-      const skiB = activeSki.find((s) => s.id === idB);
+      const skiA = (test.skis || []).find((s) => s.id === idA);
+      const skiB = (test.skis || []).find((s) => s.id === idB);
       if (!skiA || !skiB) return null;
       const getComp = (ski) => {
         const r = ski.ratings || {};
@@ -5540,8 +5547,32 @@ Outcome: Eliminated`;
         return r.kick != null && r.glide != null ? r.kick + r.glide : r.glide ?? r.kick ?? null;
       };
       const max = isGlide ? 10 : 20;
-      function PairSkiPanel({ ski, onAdv, onElim, onRup }) {
-        return /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 17, fontWeight: 800 } }, ski.id), getComp(ski) != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: getComp(ski), max })), !isBlind && ski.product && /* @__PURE__ */ React.createElement("div", { style: {
+      const isDone = (ski) => ski.standing !== "Active";
+      const resultLabel = (ski) => {
+        if (ski.standing === "Eliminated") return { label: "OUT", color: "var(--red)" };
+        if (ski.standing === "Runner-Up") return { label: "2ND", color: "var(--amber)" };
+        if (ski.standing === "Winner") return { label: "WIN", color: "var(--green)" };
+        return null;
+      };
+      function PairSkiPanel({ ski }) {
+        const done = isDone(ski);
+        const res = resultLabel(ski);
+        const isActive = activeSki.find((s) => s.id === ski.id);
+        return /* @__PURE__ */ React.createElement("div", { style: {
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          opacity: done ? 0.75 : 1
+        } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 17, fontWeight: 800 } }, ski.id), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center" } }, getComp(ski) != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: getComp(ski), max }), res && /* @__PURE__ */ React.createElement("span", { style: {
+          fontSize: 10,
+          fontWeight: 800,
+          color: res.color,
+          background: `${res.color}18`,
+          padding: "2px 6px",
+          borderRadius: 4,
+          letterSpacing: "0.06em"
+        } }, res.label))), !isBlind && ski.product && /* @__PURE__ */ React.createElement("div", { style: {
           fontSize: 12,
           color: "var(--ink-mid)",
           marginTop: 1,
@@ -5554,11 +5585,17 @@ Outcome: Eliminated`;
           marginTop: 4,
           fontStyle: "italic",
           lineHeight: 1.4
-        } }, '"', ski.feelNotes, '"')), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr" } }, /* @__PURE__ */ React.createElement(
+        } }, '"', ski.feelNotes, '"')), done ? /* @__PURE__ */ React.createElement("div", { style: {
+          padding: "12px",
+          textAlign: "center",
+          fontSize: 12,
+          color: "var(--ink-faint)",
+          fontStyle: "italic"
+        } }, "Result recorded") : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr" } }, /* @__PURE__ */ React.createElement(
           "button",
           {
             className: "btn-advance",
-            onClick: onAdv,
+            onClick: () => advance(ski.id),
             style: {
               display: "flex",
               alignItems: "center",
@@ -5582,14 +5619,14 @@ Outcome: Eliminated`;
               fontWeight: 700,
               cursor: "pointer"
             },
-            onClick: onRup
+            onClick: () => markRunnerUp(ski.id)
           },
           "2nd"
         ), /* @__PURE__ */ React.createElement(
           "button",
           {
             className: "btn-eliminate",
-            onClick: onElim,
+            onClick: () => eliminate(ski.id),
             style: {
               display: "flex",
               alignItems: "center",
@@ -5603,6 +5640,7 @@ Outcome: Eliminated`;
           " Out"
         )));
       }
+      const bothDone = isDone(skiA) && isDone(skiB);
       return /* @__PURE__ */ React.createElement("div", { style: {
         borderRadius: 10,
         overflow: "hidden",
@@ -5620,7 +5658,7 @@ Outcome: Eliminated`;
         fontWeight: 700,
         color: "var(--paper)",
         letterSpacing: "0.08em"
-      } }, "ACTIVE COMPARISON"), /* @__PURE__ */ React.createElement(
+      } }, bothDone ? "COMPARISON COMPLETE" : "ACTIVE COMPARISON"), /* @__PURE__ */ React.createElement(
         "button",
         {
           onClick: () => setCurrentPair(null),
@@ -5636,15 +5674,7 @@ Outcome: Eliminated`;
           }
         },
         "\xD7"
-      )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex" } }, /* @__PURE__ */ React.createElement(
-        PairSkiPanel,
-        {
-          ski: skiA,
-          onAdv: () => advance(skiA.id),
-          onElim: () => eliminate(skiA.id),
-          onRup: () => markRunnerUp(skiA.id)
-        }
-      ), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), /* @__PURE__ */ React.createElement("div", { style: {
+      )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex" } }, /* @__PURE__ */ React.createElement(PairSkiPanel, { ski: skiA }), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), /* @__PURE__ */ React.createElement("div", { style: {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -5655,96 +5685,174 @@ Outcome: Eliminated`;
         color: "var(--ink-faint)",
         writingMode: "vertical-rl",
         letterSpacing: "0.1em"
-      } }, "VS"), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), /* @__PURE__ */ React.createElement(
-        PairSkiPanel,
+      } }, "VS"), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), /* @__PURE__ */ React.createElement(PairSkiPanel, { ski: skiB })), bothDone && /* @__PURE__ */ React.createElement("div", { style: {
+        padding: "10px 14px",
+        borderTop: "1px solid var(--rule)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--ink-faint)" } }, "Select next pair below"), /* @__PURE__ */ React.createElement(
+        "button",
         {
-          ski: skiB,
-          onAdv: () => advance(skiB.id),
-          onElim: () => eliminate(skiB.id),
-          onRup: () => markRunnerUp(skiB.id)
-        }
-      )), /* @__PURE__ */ React.createElement(
-        "div",
-        {
-          style: { padding: "5px 0 6px", textAlign: "center", borderTop: "1px solid var(--rule)" },
-          className: "mono"
+          className: "btn-ghost",
+          style: { fontSize: 12, padding: "5px 12px", minHeight: 32 },
+          onClick: () => {
+            setCurrentPair(null);
+            if (suggestion) setCurrentPair([suggestion[0].id, suggestion[1].id]);
+          }
         },
-        /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.04em" } }, "swipe card \u2192 advance \xB7 swipe \u2190 eliminate")
-      ));
-    })(), !winner && activeSki.length >= 2 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 8
-    } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, currentPair ? `Pair selected \u2014 tap a ski to swap it` : `Select two skis to compare`), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, suggestion && !currentPair && /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn-ghost",
-        style: { fontSize: 11, padding: "3px 10px", minHeight: 28 },
-        onClick: () => setCurrentPair([suggestion[0].id, suggestion[1].id])
-      },
-      "Suggested: ",
-      suggestion[0].id,
-      " vs ",
-      suggestion[1].id
-    ), currentPair && /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn-ghost",
-        style: { fontSize: 11, padding: "3px 10px", minHeight: 28 },
-        onClick: () => setCurrentPair(null)
-      },
-      "Clear pair"
-    ))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, activeSki.map((ski) => {
-      const inPair = (currentPair || []).includes(ski.id);
+        "Next suggested \u2192"
+      )));
+    })(), !winner && activeSki.length >= 2 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12 } }, (() => {
+      const testedKeys = new Set((test.rounds || []).map((r) => {
+        const a = r.skiA || r.winner || "", b = r.skiB || r.loser || "";
+        return [a, b].sort().join("|");
+      }));
+      const totalPossible = activeSki.length * (activeSki.length - 1) / 2;
+      const testedThisRound = [...testedKeys].filter((k) => {
+        const [a, b] = k.split("|");
+        return activeSki.some((s) => s.id === a) && activeSki.some((s) => s.id === b);
+      }).length;
+      return /* @__PURE__ */ React.createElement("div", { style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8
+      } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, currentPair ? "Pair selected" : "Select two skis to compare"), testedThisRound > 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 2 } }, testedThisRound, " of ", totalPossible, " pair", totalPossible !== 1 ? "s" : "", " compared")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, suggestion && !currentPair && /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "btn-ghost",
+          style: { fontSize: 11, padding: "3px 10px", minHeight: 28 },
+          onClick: () => setCurrentPair([suggestion[0].id, suggestion[1].id])
+        },
+        "Suggest: ",
+        suggestion[0].id,
+        " vs ",
+        suggestion[1].id
+      ), currentPair && /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "btn-ghost",
+          style: { fontSize: 11, padding: "3px 10px", minHeight: 28 },
+          onClick: () => setCurrentPair(null)
+        },
+        "Clear"
+      )));
+    })(), (() => {
+      const testedKeys = new Set((test.rounds || []).map((r) => {
+        const a = r.skiA || r.winner || "", b = r.skiB || r.loser || "";
+        return [a, b].sort().join("|");
+      }));
+      const testedWith = (id) => activeSki.filter((s) => s.id !== id && testedKeys.has([id, s.id].sort().join("|"))).map((s) => s.id);
       const getComp = (s) => {
         const r = s.ratings || {};
         if (isGlide) return r.glide ?? null;
         return r.kick != null && r.glide != null ? r.kick + r.glide : null;
       };
       const max = isGlide ? 10 : 20;
-      const score = getComp(ski);
-      return /* @__PURE__ */ React.createElement(
-        "button",
-        {
-          key: ski.id,
-          onClick: () => setCurrentPair((prev) => {
-            const ids = (prev || []).filter(Boolean);
-            if (ids.includes(ski.id)) {
-              const next = ids.filter((id) => id !== ski.id);
-              return next.length ? next : null;
+      return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, activeSki.map((ski) => {
+        const inPair = (currentPair || []).includes(ski.id);
+        const testedWithList = testedWith(ski.id);
+        const allTested = testedWithList.length === activeSki.length - 1;
+        const score = getComp(ski);
+        return /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            key: ski.id,
+            onClick: () => setCurrentPair((prev) => {
+              const ids = (prev || []).filter(Boolean);
+              if (ids.includes(ski.id)) {
+                const next = ids.filter((id) => id !== ski.id);
+                return next.length ? next : null;
+              }
+              return ids.length >= 2 ? [ids[1], ski.id] : [...ids, ski.id];
+            }),
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "9px 13px",
+              borderRadius: 8,
+              cursor: "pointer",
+              border: `2px solid ${inPair ? "var(--blue)" : allTested ? "var(--green)" : testedWithList.length > 0 ? "var(--amber)" : "var(--rule)"}`,
+              background: inPair ? "var(--blue)" : "var(--paper-2)",
+              color: inPair ? "var(--paper)" : "var(--ink)",
+              minHeight: 44,
+              position: "relative"
             }
-            return ids.length >= 2 ? [ids[1], ski.id] : [...ids, ski.id];
-          }),
-          style: {
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "9px 13px",
-            borderRadius: 8,
-            cursor: "pointer",
-            border: `2px solid ${inPair ? "var(--blue)" : "var(--rule)"}`,
-            background: inPair ? "var(--blue)" : "var(--paper-2)",
-            color: inPair ? "var(--paper)" : "var(--ink)",
-            minHeight: 44
-          }
-        },
-        /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 15, fontWeight: 800 } }, ski.id),
-        !isBlind && ski.product && /* @__PURE__ */ React.createElement("span", { style: {
+          },
+          /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 15, fontWeight: 800 } }, ski.id),
+          !isBlind && ski.product && /* @__PURE__ */ React.createElement("span", { style: {
+            fontSize: 11,
+            opacity: 0.75,
+            maxWidth: 80,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap"
+          } }, ski.product.split(" ").slice(0, 2).join(" ")),
+          score != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+            fontSize: 11,
+            fontWeight: 700,
+            opacity: inPair ? 0.85 : 0.6
+          } }, score, "/", max),
+          testedWithList.length > 0 && !inPair && /* @__PURE__ */ React.createElement("span", { style: {
+            fontSize: 9,
+            color: allTested ? "var(--green)" : "var(--amber)",
+            fontWeight: 700,
+            marginLeft: 2
+          } }, testedWithList.length, "\u2713")
+        );
+      }));
+    })()), !winner && activeSki.length === 1 && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn",
+        style: { width: "100%", marginTop: 8 },
+        onClick: () => declareWinner(activeSki[0].id)
+      },
+      "Declare Winner: ",
+      activeSki[0].id
+    ), !winner && activeSki.length >= 2 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "8px 12px",
+      background: "var(--paper-2)",
+      borderRadius: 8,
+      border: "1.5px solid var(--rule)"
+    } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0, fontSize: 11 } }, "Declare winner now"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" } }, activeSki.map((ski) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: ski.id,
+        className: "btn-ghost",
+        style: {
           fontSize: 11,
-          opacity: 0.75,
-          maxWidth: 90,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        } }, ski.product.split(" ").slice(0, 2).join(" ")),
-        score != null && /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          padding: "4px 10px",
+          minHeight: 30,
+          color: "var(--green)",
+          borderColor: "var(--green)"
+        },
+        onClick: () => declareWinner(ski.id)
+      },
+      ski.id
+    )), activeSki.length === 2 && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: declareTie,
+        style: {
+          background: "var(--paper-3)",
+          border: "1.5px solid var(--ink-faint)",
+          borderRadius: 6,
+          color: "var(--ink-mid)",
           fontSize: 11,
           fontWeight: 700,
-          opacity: inPair ? 0.85 : 0.6
-        } }, score, "/", max)
-      );
-    }))), activeSki.map((ski) => /* @__PURE__ */ React.createElement(
+          padding: "4px 10px",
+          cursor: "pointer",
+          minHeight: 30
+        }
+      },
+      "Tie"
+    )))), activeSki.map((ski) => /* @__PURE__ */ React.createElement(
       TournamentSkiCard,
       {
         key: ski.id,
@@ -5762,52 +5870,7 @@ Outcome: Eliminated`;
         selected: false,
         onSelect: null
       }
-    )), activeSki.length === 1 && !winner && /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn",
-        style: { width: "100%", marginTop: 8 },
-        onClick: () => declareWinner(activeSki[0].id)
-      },
-      "Declare Winner: ",
-      activeSki[0].id
-    ), activeSki.length === 2 && !winner && !currentPair && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn",
-        onClick: () => declareWinner(activeSki[0].id),
-        style: { fontSize: 13, padding: "12px 0" }
-      },
-      "Winner: ",
-      activeSki[0].id
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: declareTie,
-        style: {
-          background: "var(--paper-3)",
-          border: "2px solid var(--ink-faint)",
-          borderRadius: 6,
-          color: "var(--ink-mid)",
-          fontSize: 12,
-          fontWeight: 700,
-          padding: "12px 14px",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          minHeight: 44
-        }
-      },
-      "Tie"
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn",
-        onClick: () => declareWinner(activeSki[1].id),
-        style: { fontSize: 13, padding: "12px 0" }
-      },
-      "Winner: ",
-      activeSki[1].id
-    ))), tied.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, { style: { color: "var(--amber)" } }, "Tied (", tied.length, ")"), tied.map((ski) => /* @__PURE__ */ React.createElement("div", { key: ski.id, style: {
+    )), tied.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, { style: { color: "var(--amber)" } }, "Tied (", tied.length, ")"), tied.map((ski) => /* @__PURE__ */ React.createElement("div", { key: ski.id, style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
