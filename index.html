@@ -1398,7 +1398,7 @@ Outcome: Eliminated`;
       onChange(v);
     } })));
   }
-  function NI({ label, value, onChange, min, max: max2, step, placeholder, style }) {
+  function NI({ label, value, onChange, min, max, step, placeholder, style }) {
     const [local, setLocal] = useState(value ?? "");
     const lastProp = useRef(value);
     if (value !== lastProp.current) {
@@ -1412,7 +1412,7 @@ Outcome: Eliminated`;
         type: "number",
         value: local,
         min,
-        max: max2,
+        max,
         step: step || 1,
         placeholder: placeholder || "",
         inputMode: "numeric",
@@ -2851,11 +2851,11 @@ Outcome: Eliminated`;
       lineHeight: 1
     } }, "\xD7"));
   }
-  function compositeColor(score, max2) {
-    const p = score / max2;
+  function compositeColor(score, max) {
+    const p = score / max;
     return p >= 0.75 ? "var(--green)" : p >= 0.45 ? "var(--amber)" : "var(--red)";
   }
-  function RatingBadge({ score, max: max2, label }) {
+  function RatingBadge({ score, max, label }) {
     if (score == null) return null;
     return /* @__PURE__ */ React.createElement("span", { style: {
       display: "inline-flex",
@@ -2864,12 +2864,12 @@ Outcome: Eliminated`;
       fontWeight: 700,
       fontSize: 14,
       padding: "5px 12px",
-      background: compositeColor(score, max2),
+      background: compositeColor(score, max),
       color: "#fff",
       borderRadius: 6,
       minHeight: 32,
       letterSpacing: "0.03em"
-    } }, label ? `${label} ` : "", score, "/", max2);
+    } }, label ? `${label} ` : "", score, "/", max);
   }
   function TempFAB({
     readings = [],
@@ -4083,14 +4083,14 @@ Outcome: Eliminated`;
       textTransform: "uppercase",
       letterSpacing: "0.08em",
       marginBottom: 2
-    } }, k), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, v)))), w.trailNotes && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", fontStyle: "italic", marginBottom: 16 } }, w.trailNotes)), allWinners.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Lbl, null, "Test Winners"), allWinners.map(({ ski, test, sess, isG, comp, max: max2 }, i) => {
+    } }, k), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, v)))), w.trailNotes && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", fontStyle: "italic", marginBottom: 16 } }, w.trailNotes)), allWinners.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Lbl, null, "Test Winners"), allWinners.map(({ ski, test, sess, isG, comp, max }, i) => {
       const matchCount = (test.rounds || []).length;
       const beatCount = (test.skis || []).filter((s) => s.standing === "Eliminated").length;
       return /* @__PURE__ */ React.createElement("div", { key: i, className: "card", style: {
         padding: "12px 14px",
         marginBottom: 8,
         borderLeft: "3px solid var(--green)"
-      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 800, fontSize: 16 } }, ski.product || ski.id), ski.waxForm && /* @__PURE__ */ React.createElement(WaxFormBadge, { form: ski.waxForm })), ski.product && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, ski.id), ski.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginTop: 1 } }, ski.application), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 4 } }, sess.name, " \xB7 ", test.category, test.type ? ` ${test.type}` : "", test.testers ? ` \xB7 ${test.testers}` : "", matchCount > 0 ? ` \xB7 ${matchCount} round${matchCount !== 1 ? "s" : ""}` : "", beatCount > 0 ? `, beat ${beatCount}` : "")), comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max: max2 })), ski.feelNotes && /* @__PURE__ */ React.createElement("div", { style: {
+      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 800, fontSize: 16 } }, ski.product || ski.id), ski.waxForm && /* @__PURE__ */ React.createElement(WaxFormBadge, { form: ski.waxForm })), ski.product && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, ski.id), ski.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginTop: 1 } }, ski.application), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 4 } }, sess.name, " \xB7 ", test.category, test.type ? ` ${test.type}` : "", test.testers ? ` \xB7 ${test.testers}` : "", matchCount > 0 ? ` \xB7 ${matchCount} round${matchCount !== 1 ? "s" : ""}` : "", beatCount > 0 ? `, beat ${beatCount}` : "")), comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max })), ski.feelNotes && /* @__PURE__ */ React.createElement("div", { style: {
         fontSize: 12,
         color: "var(--ink-mid)",
         marginTop: 8,
@@ -4107,7 +4107,7 @@ Outcome: Eliminated`;
           style: { width: 52, height: 52, objectFit: "cover", borderRadius: 4 }
         }
       ))));
-    })), topRunners.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Close Calls"), topRunners.map(({ ski, test, sess, comp, max: max2, isRunnerUp }, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+    })), topRunners.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Close Calls"), topRunners.map(({ ski, test, sess, comp, max, isRunnerUp }, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
@@ -4122,7 +4122,7 @@ Outcome: Eliminated`;
       background: "rgba(255,159,10,0.1)",
       padding: "1px 5px",
       borderRadius: 3
-    } }, "2ND")), ski.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 1 } }, ski.application), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 2 } }, sess.name, " \xB7 ", test.category, test.type ? ` ${test.type}` : "")), comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max: max2 })))), event.notes && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Notes"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, lineHeight: 1.6 } }, event.notes)), event.raceFeedback && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Post-Race Feedback"), /* @__PURE__ */ React.createElement("div", { style: {
+    } }, "2ND")), ski.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 1 } }, ski.application), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 2 } }, sess.name, " \xB7 ", test.category, test.type ? ` ${test.type}` : "")), comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max })))), event.notes && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Notes"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, lineHeight: 1.6 } }, event.notes)), event.raceFeedback && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Hr, null), /* @__PURE__ */ React.createElement(Lbl, null, "Post-Race Feedback"), /* @__PURE__ */ React.createElement("div", { style: {
       fontSize: 13,
       color: "var(--ink-mid)",
       fontStyle: "italic",
@@ -4523,7 +4523,7 @@ Outcome: Eliminated`;
       onRatingChange(ski.id, { ...ratings, [field]: val });
     }
     const composite = isGlide ? ratings.glide : ratings.kick != null && ratings.glide != null ? ratings.kick + ratings.glide : null;
-    const max2 = isGlide ? 10 : 20;
+    const max = isGlide ? 10 : 20;
     const sColor = ski.standing === "Winner" ? "var(--green)" : ski.standing === "Runner-Up" ? "var(--amber)" : ski.standing === "Tied" ? "var(--amber)" : ski.standing === "Eliminated" ? "var(--red)" : "var(--ink-faint)";
     const sBorder = ski.standing === "Winner" ? "3px solid var(--green)" : ski.standing === "Runner-Up" ? "3px solid var(--amber)" : ski.standing === "Eliminated" ? "3px solid var(--rule)" : "none";
     return /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 8, borderLeft: sBorder } }, showPhotos && onPhotoSave && /* @__PURE__ */ React.createElement(
@@ -4550,7 +4550,7 @@ Outcome: Eliminated`;
       textOverflow: "ellipsis",
       maxWidth: "180px",
       fontStyle: "italic"
-    } }, ski.feelNotes)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, ski.photos?.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, ski.photos.length, " Photo", ski.photos.length !== 1 ? "s" : ""), composite != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: composite, max: max2 }), ski.standing && /* @__PURE__ */ React.createElement("span", { style: {
+    } }, ski.feelNotes)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, ski.photos?.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, ski.photos.length, " Photo", ski.photos.length !== 1 ? "s" : ""), composite != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: composite, max }), ski.standing && /* @__PURE__ */ React.createElement("span", { style: {
       fontSize: 10,
       fontWeight: 700,
       color: sColor,
@@ -4590,7 +4590,7 @@ Outcome: Eliminated`;
         onChange: (e) => setR("glide", Number(e.target.value)),
         style: { flex: 1 }
       }
-    ), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 18, fontWeight: 700, width: 32, textAlign: "right" } }, ratings.glide ?? "-")), composite != null && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 } }, "Composite: ", /* @__PURE__ */ React.createElement("span", { style: { color: compositeColor(composite, max2), fontWeight: 700 } }, composite, "/", max2)), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 18, fontWeight: 700, width: 32, textAlign: "right" } }, ratings.glide ?? "-")), composite != null && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 } }, "Composite: ", /* @__PURE__ */ React.createElement("span", { style: { color: compositeColor(composite, max), fontWeight: 700 } }, composite, "/", max)), /* @__PURE__ */ React.createElement(
       TA,
       {
         label: "Feel Notes",
@@ -4617,7 +4617,7 @@ Outcome: Eliminated`;
       if (isGlide) return r.glide ?? null;
       return r.kick != null && r.glide != null ? r.kick + r.glide : r.glide ?? r.kick ?? null;
     }
-    const max2 = isGlide ? 10 : 20;
+    const max = isGlide ? 10 : 20;
     const finalWinner = skis.find((s) => s.standing === "Winner");
     const runnerUp = skis.find((s) => s.standing === "Runner-Up");
     function groupIntoRounds(matches) {
@@ -4904,7 +4904,7 @@ Outcome: Eliminated`;
           },
           score,
           "/",
-          max2
+          max
         ), isElimHere && /* @__PURE__ */ React.createElement(
           "text",
           {
@@ -4995,7 +4995,7 @@ Outcome: Eliminated`;
           },
           score,
           "/",
-          max2
+          max
         ), /* @__PURE__ */ React.createElement(
           "text",
           {
@@ -5060,7 +5060,7 @@ Outcome: Eliminated`;
           },
           score,
           "/",
-          max2
+          max
         ), /* @__PURE__ */ React.createElement(
           "text",
           {
@@ -5146,7 +5146,7 @@ Outcome: Eliminated`;
     isBlind,
     isGlide,
     getComp,
-    max: max2,
+    max,
     currentPair,
     winner,
     roundState,
@@ -5215,7 +5215,7 @@ Outcome: Eliminated`;
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
-    } }, '"', ski.feelNotes, '"')), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 } }, comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max: max2 }), (status === "active" || status === "tested") && !winner && /* @__PURE__ */ React.createElement(
+    } }, '"', ski.feelNotes, '"')), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 } }, comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max }), (status === "active" || status === "tested") && !winner && /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: () => setCurrentPair((prev) => {
@@ -5287,7 +5287,7 @@ Outcome: Eliminated`;
       width: 28,
       textAlign: "right",
       color: ski.ratings?.glide != null ? compositeColor(ski.ratings.glide, 10) : "var(--ink-faint)"
-    } }, ski.ratings?.glide ?? "-")), comp != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8 }, className: "mono" }, "Composite: ", /* @__PURE__ */ React.createElement("span", { style: { color: compositeColor(comp, max2), fontWeight: 700 } }, comp, "/", max2)), /* @__PURE__ */ React.createElement(
+    } }, ski.ratings?.glide ?? "-")), comp != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8 }, className: "mono" }, "Composite: ", /* @__PURE__ */ React.createElement("span", { style: { color: compositeColor(comp, max), fontWeight: 700 } }, comp, "/", max)), /* @__PURE__ */ React.createElement(
       TA,
       {
         label: "",
@@ -5659,7 +5659,7 @@ Outcome: Eliminated`;
         if (isGlide) return r.glide ?? null;
         return r.kick != null && r.glide != null ? r.kick + r.glide : r.glide ?? r.kick ?? null;
       };
-      const max2 = isGlide ? 10 : 20;
+      const max = isGlide ? 10 : 20;
       const rated = activeSki.filter((s) => getComp2(s) != null).sort((a, b) => getComp2(b) - getComp2(a));
       const leader = rated[0];
       const conflicted = winner ? (test.skis || []).filter((s) => s.standing === "Eliminated" && getComp2(s) != null && getComp2(winner) != null && getComp2(s) > getComp2(winner)).sort((a, b) => getComp2(b) - getComp2(a)) : [];
@@ -5669,7 +5669,7 @@ Outcome: Eliminated`;
         borderRadius: 8,
         marginBottom: 12,
         border: "1.5px solid var(--rule)"
-      } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 4, color: "var(--green)" } }, "Rated leader"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 14, fontWeight: 700 } }, leader.id), !isBlind && leader.product && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-mid)", marginLeft: 8 } }, leader.product), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 2 } }, getComp2(leader), "/", max2, " feel score \xB7 ", rated.length, " of ", activeSki.length, " skis rated")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement(RatingBadge, { score: getComp2(leader), max: max2 }), /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 4, color: "var(--green)" } }, "Rated leader"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 14, fontWeight: 700 } }, leader.id), !isBlind && leader.product && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: "var(--ink-mid)", marginLeft: 8 } }, leader.product), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 2 } }, getComp2(leader), "/", max, " feel score \xB7 ", rated.length, " of ", activeSki.length, " skis rated")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement(RatingBadge, { score: getComp2(leader), max }), /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "btn-ghost",
@@ -5683,13 +5683,13 @@ Outcome: Eliminated`;
         fontSize: 11,
         color: i === 0 ? "var(--ink)" : "var(--ink-faint)",
         paddingBottom: 2
-      } }, /* @__PURE__ */ React.createElement("span", { className: "mono" }, "#", i + 1, " ", s.id, !isBlind && s.product ? ` \u2014 ${s.product}` : ""), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontWeight: 600 } }, getComp2(s), "/", max2))))), winner && conflicted.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+      } }, /* @__PURE__ */ React.createElement("span", { className: "mono" }, "#", i + 1, " ", s.id, !isBlind && s.product ? ` \u2014 ${s.product}` : ""), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontWeight: 600 } }, getComp2(s), "/", max))))), winner && conflicted.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
         padding: "10px 14px",
         background: "var(--paper-2)",
         borderRadius: 8,
         marginBottom: 12,
         border: "1.5px solid var(--amber)"
-      } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--amber)", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(EliminateIcon, { size: 12, color: "var(--amber)" }), "Rating inconsistency")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-mid)", lineHeight: 1.5 } }, conflicted.map((s) => /* @__PURE__ */ React.createElement("span", { key: s.id }, /* @__PURE__ */ React.createElement("span", { className: "mono" }, s.id), " was eliminated but rated", " ", /* @__PURE__ */ React.createElement("strong", null, getComp2(s), "/", max2), " vs winner", " ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, winner.id), " ", /* @__PURE__ */ React.createElement("strong", null, getComp2(winner), "/", max2), ".", " ")), "Consider re-testing.")));
+      } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--amber)", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(EliminateIcon, { size: 12, color: "var(--amber)" }), "Rating inconsistency")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-mid)", lineHeight: 1.5 } }, conflicted.map((s) => /* @__PURE__ */ React.createElement("span", { key: s.id }, /* @__PURE__ */ React.createElement("span", { className: "mono" }, s.id), " was eliminated but rated", " ", /* @__PURE__ */ React.createElement("strong", null, getComp2(s), "/", max), " vs winner", " ", /* @__PURE__ */ React.createElement("span", { className: "mono" }, winner.id), " ", /* @__PURE__ */ React.createElement("strong", null, getComp2(winner), "/", max), ".", " ")), "Consider re-testing.")));
     })(), /* @__PURE__ */ React.createElement(
       VoiceCommandBar,
       {
@@ -5778,7 +5778,7 @@ Outcome: Eliminated`;
         if (isGlide) return r.glide ?? null;
         return r.kick != null && r.glide != null ? r.kick + r.glide : r.glide ?? r.kick ?? null;
       };
-      const max2 = isGlide ? 10 : 20;
+      const max = isGlide ? 10 : 20;
       const actedA = pairActed.has(idA);
       const actedB = pairActed.has(idB);
       const bothActed = actedA && actedB;
@@ -5800,7 +5800,7 @@ Outcome: Eliminated`;
           display: "flex",
           flexDirection: "column",
           opacity: acted ? 0.8 : 1
-        } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 17, fontWeight: 800 } }, ski.id), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center" } }, pairGetComp(ski) != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: pairGetComp(ski), max: max2 }), res && /* @__PURE__ */ React.createElement("span", { style: {
+        } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 17, fontWeight: 800 } }, ski.id), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center" } }, pairGetComp(ski) != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: pairGetComp(ski), max }), res && /* @__PURE__ */ React.createElement("span", { style: {
           fontSize: 10,
           fontWeight: 800,
           color: res.color,
@@ -5978,7 +5978,7 @@ Outcome: Eliminated`;
         isBlind,
         isGlide,
         getComp,
-        max,
+        max: compMax,
         currentPair,
         winner,
         roundState: rs,
