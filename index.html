@@ -5522,6 +5522,10 @@ Outcome: Eliminated`;
     function updatePhotos(skiId, photos) {
       updSki(skiId, { photos });
     }
+    function selectPair(ids) {
+      setCurrentPair(ids);
+      setPairActed(/* @__PURE__ */ new Set());
+    }
     function suggestPair(rs) {
       const unpaired = activeSki.filter((s) => rs && !rs.pairedThisRound.has(s.id));
       const pool = unpaired.length >= 2 ? unpaired : activeSki;
@@ -5988,7 +5992,7 @@ Outcome: Eliminated`;
         rewaxForm,
         vocab,
         test,
-        setCurrentPair,
+        setCurrentPair: selectPair,
         updateRating,
         restore,
         startRewax,
@@ -6011,7 +6015,7 @@ Outcome: Eliminated`;
         {
           className: "btn-ghost",
           style: { fontSize: 11, padding: "3px 10px", minHeight: 28 },
-          onClick: () => setCurrentPair([suggestion[0].id, suggestion[1].id])
+          onClick: () => selectPair([suggestion[0].id, suggestion[1].id])
         },
         "Suggest: ",
         suggestion[0].id,
