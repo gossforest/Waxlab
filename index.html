@@ -3337,9 +3337,8 @@ Outcome: Eliminated`;
       setErr(null);
       try {
         const rows = await fetchForecast(lat, lon);
-        const forecast = { fetchedAt: (/* @__PURE__ */ new Date()).toISOString(), lat, lon, locationLabel: label, hourly: rows };
-        onUpdate({ ...event, forecast });
-        setMsg(`\u2713 ${rows.length}h of data \u2014 ${label}`);
+        onUpdate({ ...event, forecast: { fetchedAt: (/* @__PURE__ */ new Date()).toISOString(), lat, lon, locationLabel: label, hourly: rows } });
+        setMsg(`\u2713 Downloaded \u2014 ${label}`);
         setGeoResults([]);
       } catch (e) {
         setErr(e.message);
@@ -3414,182 +3413,315 @@ Outcome: Eliminated`;
       setMsg("Refreshing\u2026");
       await doFetch(fc.lat, fc.lon, fc.locationLabel || "");
     }
-    function ForecastGraph({ rows, useCelsius: useCelsius2 }) {
-      if (!rows?.length) return null;
-      const W = 320, H = 130, PL = 34, PR = 8, PT = 12, PB = 28;
-      const GW = W - PL - PR, GH = H - PT - PB;
-      const now = Date.now();
-      const temps = rows.map((r) => useCelsius2 ? fToC(r.tempF) : r.tempF).filter((v) => v != null);
-      const rawMin = Math.min(...temps), rawMax = Math.max(...temps);
-      const pad = Math.max((rawMax - rawMin) * 0.15, 2);
-      const yMin = Math.floor(rawMin - pad), yMax = Math.ceil(rawMax + pad);
-      const yRange = yMax - yMin || 1;
+    function coverageWarning() {
+      if (!fc?.hourly?.length || !event.date) return null;
+      const evDate = new Date(event.date);
+      if (isNaN(evDate.getTime())) return null;
+      const evDay = evDate.toDateString();
+      const covered = fc.hourly.some((r) => new Date(r.time).toDateString() === evDay);
+      if (covered) return null;
+      const fcStart = new Date(fc.hourly[0].time);
+      const fcEnd = new Date(fc.hourly[fc.hourly.length - 1].time);
+      const evStr = evDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const fcStr = `${fcStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}\u2013${fcEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+      return `Event date (${evStr}) is outside this forecast window (${fcStr}). Refresh to get a centred forecast.`;
+    }
+    const dateWarning = coverageWarning();
+    const VW = 400;
+    const PL = 38;
+    const PR = 6;
+    const GW = VW - PL - PR;
+    function makeXScale(rows) {
       const times = rows.map((r) => new Date(r.time).getTime());
       const tMin = Math.min(...times), tMax = Math.max(...times);
       const tRange = tMax - tMin || 1;
-      function xOf(ts) {
-        return PL + (ts - tMin) / tRange * GW;
-      }
-      function yOf(temp) {
-        return PT + GH - (temp - yMin) / yRange * GH;
-      }
-      const pts = rows.map((r) => {
-        const t = useCelsius2 ? fToC(r.tempF) : r.tempF;
-        if (t == null) return null;
-        return `${xOf(new Date(r.time).getTime()).toFixed(1)},${yOf(t).toFixed(1)}`;
-      }).filter(Boolean).join(" ");
-      const firstX = xOf(times[0]), lastX = xOf(times[times.length - 1]);
-      const areaBottom = PT + GH;
-      const areaPts = rows.map((r) => {
-        const t = useCelsius2 ? fToC(r.tempF) : r.tempF;
-        if (t == null) return null;
-        return `${xOf(new Date(r.time).getTime()).toFixed(1)},${yOf(t).toFixed(1)}`;
-      }).filter(Boolean);
-      const areaPath = areaPts.length ? `M${areaPts[0]} L${areaPts.join(" L")} L${lastX},${areaBottom} L${firstX},${areaBottom} Z` : "";
-      const yTicks = [yMin, Math.round((yMin + yMax) / 2), yMax];
-      const xLabels = [];
-      rows.forEach((r, i) => {
+      return { tMin, tMax, tRange, xOf: (ts) => PL + (ts - tMin) / tRange * GW };
+    }
+    function XAxisLabels({ rows }) {
+      const { xOf } = makeXScale(rows);
+      const now = Date.now();
+      const labels = [];
+      rows.forEach((r) => {
         const d = new Date(r.time);
-        if (d.getMinutes() === 0 && d.getHours() % 6 === 0) {
-          const label = d.getHours() === 0 ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : d.getHours() === 12 ? "noon" : `${d.getHours() > 12 ? d.getHours() - 12 : d.getHours()}${d.getHours() >= 12 ? "p" : "a"}`;
-          xLabels.push({ x: xOf(new Date(r.time).getTime()), label });
-        }
+        if (d.getMinutes() !== 0 || d.getHours() % 6 !== 0) return;
+        const isNoon = d.getHours() === 12;
+        const isMidnight = d.getHours() === 0;
+        const label = isMidnight ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : isNoon ? "noon" : `${d.getHours() > 12 ? d.getHours() - 12 : d.getHours()}${d.getHours() >= 12 ? "p" : "a"}`;
+        labels.push({ x: xOf(new Date(r.time).getTime()), label, isMidnight });
       });
-      const nowX = tMin <= now && now <= tMax ? xOf(now) : null;
-      const maxPrecip = Math.max(...rows.map((r) => r.precip || 0), 0.1);
-      const precipH = 14;
-      const precipBarW = Math.max(GW / rows.length - 1, 1);
-      const snowRows = rows.filter((r) => hasSnow(r.code));
-      const rainRows = rows.filter((r) => hasRain(r.code));
-      const ink = "var(--ink)";
-      const inkFaint = "var(--ink-faint)";
-      const rule = "var(--rule)";
-      return /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React.createElement("rect", { x: PL, y: PT, width: GW, height: GH, fill: "var(--paper-2)" }), yTicks.map((v, i) => {
-        const y = yOf(v);
-        return /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement(
+      const nowX = (() => {
+        const { tMin, tMax, xOf: xOf2 } = makeXScale(rows);
+        return now >= tMin && now <= tMax ? xOf2(now) : null;
+      })();
+      return /* @__PURE__ */ React.createElement("svg", { viewBox: `0 ${0} ${VW} ${18}`, width: "100%", style: { display: "block", marginTop: -1 } }, labels.filter((l) => l.isMidnight).map((l, i) => /* @__PURE__ */ React.createElement(
+        "line",
+        {
+          key: i,
+          x1: l.x,
+          y1: 0,
+          x2: l.x,
+          y2: 4,
+          stroke: "var(--rule)",
+          strokeWidth: "1"
+        }
+      )), labels.map((l, i) => /* @__PURE__ */ React.createElement(
+        "text",
+        {
+          key: i,
+          x: l.x,
+          y: 14,
+          textAnchor: "middle",
+          fontSize: l.isMidnight ? "9" : "8",
+          fontWeight: l.isMidnight ? "600" : "400",
+          fill: l.isMidnight ? "var(--ink-mid)" : "var(--ink-faint)",
+          fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
+        },
+        l.label
+      )), nowX != null && /* @__PURE__ */ React.createElement(
+        "text",
+        {
+          x: nowX,
+          y: 14,
+          textAnchor: "middle",
+          fontSize: "8",
+          fontWeight: "700",
+          fill: "var(--ink)",
+          fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
+        },
+        "now"
+      ));
+    }
+    function TempChart({ rows, useCelsius: useCelsius2 }) {
+      const H = 100, PT = 8, PB = 6;
+      const GH = H - PT - PB;
+      const { tMin, tMax, tRange, xOf } = makeXScale(rows);
+      const now = Date.now();
+      const nowX = now >= tMin && now <= tMax ? xOf(now) : null;
+      const temps = rows.map((r) => useCelsius2 ? fToC(r.tempF) : r.tempF).filter((v) => v != null);
+      if (!temps.length) return null;
+      const rawMin = Math.min(...temps), rawMax = Math.max(...temps);
+      const pad = Math.max((rawMax - rawMin) * 0.2, 3);
+      const yMin = rawMin - pad, yMax = rawMax + pad;
+      const yRange = yMax - yMin || 1;
+      function yOf(v) {
+        return PT + GH - (v - yMin) / yRange * GH;
+      }
+      function niceStep(range) {
+        const raw = range / 3;
+        const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+        return Math.ceil(raw / mag) * mag;
+      }
+      const step = niceStep(yMax - yMin);
+      const tickStart = Math.ceil(yMin / step) * step;
+      const yTicks = [];
+      for (let v = tickStart; v <= yMax; v += step) yTicks.push(v);
+      const validPts = rows.map((r) => ({ x: xOf(new Date(r.time).getTime()), y: yOf(useCelsius2 ? fToC(r.tempF) : r.tempF) })).filter((p) => !isNaN(p.y));
+      if (!validPts.length) return null;
+      const linePts = validPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+      const firstPt = validPts[0], lastPt = validPts[validPts.length - 1];
+      const areaD = `M${firstPt.x.toFixed(1)},${firstPt.y.toFixed(1)} ` + validPts.slice(1).map((p) => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") + ` L${lastPt.x.toFixed(1)},${PT + GH} L${firstPt.x.toFixed(1)},${PT + GH} Z`;
+      const freezeV = useCelsius2 ? 0 : 32;
+      const showFreeze = freezeV >= yMin && freezeV <= yMax;
+      const freezeY = yOf(freezeV);
+      return /* @__PURE__ */ React.createElement(
+        "svg",
+        {
+          viewBox: `0 0 ${VW} ${H}`,
+          width: "100%",
+          style: { display: "block" },
+          preserveAspectRatio: "none"
+        },
+        /* @__PURE__ */ React.createElement("rect", { x: PL, y: PT, width: GW, height: GH, fill: "var(--paper)" }),
+        yTicks.map((v, i) => /* @__PURE__ */ React.createElement(
+          "line",
+          {
+            key: i,
+            x1: PL,
+            y1: yOf(v),
+            x2: PL + GW,
+            y2: yOf(v),
+            stroke: "var(--rule)",
+            strokeWidth: "0.5",
+            strokeDasharray: "2,4"
+          }
+        )),
+        showFreeze && /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement(
           "line",
           {
             x1: PL,
-            y1: y,
+            y1: freezeY,
             x2: PL + GW,
-            y2: y,
-            stroke: rule,
-            strokeWidth: "0.5",
-            strokeDasharray: "3,3"
+            y2: freezeY,
+            stroke: "var(--ink-faint)",
+            strokeWidth: "0.75",
+            strokeDasharray: "4,3"
           }
         ), /* @__PURE__ */ React.createElement(
           "text",
           {
-            x: PL - 3,
-            y: y + 4,
+            x: PL + GW - 2,
+            y: freezeY - 2,
+            textAnchor: "end",
+            fontSize: "7",
+            fill: "var(--ink-faint)",
+            fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
+          },
+          useCelsius2 ? "0\xB0C" : "32\xB0F"
+        )),
+        nowX != null && /* @__PURE__ */ React.createElement(
+          "line",
+          {
+            x1: nowX,
+            y1: PT,
+            x2: nowX,
+            y2: PT + GH,
+            stroke: "var(--ink)",
+            strokeWidth: "0.75",
+            strokeDasharray: "2,3",
+            opacity: "0.4"
+          }
+        ),
+        /* @__PURE__ */ React.createElement("path", { d: areaD, fill: "var(--ink)", opacity: "0.05" }),
+        /* @__PURE__ */ React.createElement(
+          "polyline",
+          {
+            points: linePts,
+            fill: "none",
+            stroke: "var(--ink)",
+            strokeWidth: "1.75",
+            strokeLinejoin: "round",
+            strokeLinecap: "round"
+          }
+        ),
+        yTicks.map((v, i) => /* @__PURE__ */ React.createElement(
+          "text",
+          {
+            key: i,
+            x: PL - 4,
+            y: yOf(v) + 3,
             textAnchor: "end",
             fontSize: "8",
-            fill: inkFaint,
-            fontFamily: "monospace"
+            fill: "var(--ink-faint)",
+            fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
           },
-          v,
-          useCelsius2 ? "\xB0C" : "\xB0F"
+          Math.round(v),
+          useCelsius2 ? "\xB0" : "\xB0"
+        )),
+        /* @__PURE__ */ React.createElement(
+          "line",
+          {
+            x1: PL,
+            y1: PT,
+            x2: PL,
+            y2: PT + GH,
+            stroke: "var(--rule)",
+            strokeWidth: "1"
+          }
+        ),
+        /* @__PURE__ */ React.createElement(
+          "line",
+          {
+            x1: PL,
+            y1: PT + GH,
+            x2: PL + GW,
+            y2: PT + GH,
+            stroke: "var(--rule)",
+            strokeWidth: "0.5"
+          }
+        )
+      );
+    }
+    function PrecipChart({ rows }) {
+      const H = 48, PT = 4, PB = 2;
+      const GH = H - PT - PB;
+      const { tMin, tMax, tRange, xOf } = makeXScale(rows);
+      const now = Date.now();
+      const nowX = now >= tMin && now <= tMax ? xOf(now) : null;
+      const maxPrecip = Math.max(...rows.map((r) => r.precip || 0), 0.5);
+      const barW = Math.max(GW / rows.length - 0.5, 1);
+      const hasPrecip = rows.some((r) => (r.precip || 0) > 0.05);
+      if (!hasPrecip) {
+        return /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${VW} ${H}`, width: "100%", style: { display: "block" } }, /* @__PURE__ */ React.createElement("rect", { x: PL, y: PT, width: GW, height: GH, fill: "var(--paper)" }), /* @__PURE__ */ React.createElement(
+          "text",
+          {
+            x: PL + GW / 2,
+            y: PT + GH / 2 + 3,
+            textAnchor: "middle",
+            fontSize: "8",
+            fill: "var(--ink-faint)",
+            fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
+          },
+          "No precipitation"
+        ), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT, x2: PL, y2: PT + GH, stroke: "var(--rule)", strokeWidth: "1" }), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT + GH, x2: PL + GW, y2: PT + GH, stroke: "var(--rule)", strokeWidth: "0.5" }), nowX != null && /* @__PURE__ */ React.createElement(
+          "line",
+          {
+            x1: nowX,
+            y1: PT,
+            x2: nowX,
+            y2: PT + GH,
+            stroke: "var(--ink)",
+            strokeWidth: "0.75",
+            strokeDasharray: "2,3",
+            opacity: "0.4"
+          }
         ));
-      }), nowX != null && /* @__PURE__ */ React.createElement(
+      }
+      return /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${VW} ${H}`, width: "100%", style: { display: "block" } }, /* @__PURE__ */ React.createElement("rect", { x: PL, y: PT, width: GW, height: GH, fill: "var(--paper)" }), nowX != null && /* @__PURE__ */ React.createElement(
         "line",
         {
           x1: nowX,
           y1: PT,
           x2: nowX,
           y2: PT + GH,
-          stroke: ink,
-          strokeWidth: "1",
-          strokeDasharray: "2,2",
-          opacity: "0.5"
+          stroke: "var(--ink)",
+          strokeWidth: "0.75",
+          strokeDasharray: "2,3",
+          opacity: "0.4"
         }
       ), rows.map((r, i) => {
-        const h = maxPrecip > 0 ? (r.precip || 0) / maxPrecip * precipH : 0;
-        if (h < 0.5) return null;
-        const x = xOf(new Date(r.time).getTime()) - precipBarW / 2;
-        const isSnowBar = hasSnow(r.code);
+        const p = r.precip || 0;
+        if (p < 0.02) return null;
+        const bh = p / maxPrecip * GH;
+        const bx = xOf(new Date(r.time).getTime()) - barW / 2;
+        const by = PT + GH - bh;
+        const isSnow = hasSnow(r.code);
         return /* @__PURE__ */ React.createElement(
           "rect",
           {
             key: i,
-            x,
-            y: PT + GH - h,
-            width: precipBarW,
-            height: h,
-            fill: isSnowBar ? "var(--blue)" : ink,
-            opacity: "0.25"
+            x: bx,
+            y: by,
+            width: barW,
+            height: bh,
+            fill: isSnow ? "var(--ink)" : "var(--ink-mid)",
+            opacity: isSnow ? "0.75" : "0.5"
           }
         );
-      }), areaPath && /* @__PURE__ */ React.createElement("path", { d: areaPath, fill: ink, opacity: "0.06" }), /* @__PURE__ */ React.createElement(
-        "polyline",
-        {
-          points: pts,
-          fill: "none",
-          stroke: ink,
-          strokeWidth: "1.5",
-          strokeLinejoin: "round",
-          strokeLinecap: "round"
-        }
-      ), rows.filter((_, i) => i % 3 === 0).map((r, i) => {
-        const t = useCelsius2 ? fToC(r.tempF) : r.tempF;
-        if (t == null) return null;
-        return /* @__PURE__ */ React.createElement(
-          "circle",
-          {
-            key: i,
-            cx: xOf(new Date(r.time).getTime()),
-            cy: yOf(t),
-            r: "1.8",
-            fill: ink
-          }
-        );
-      }), xLabels.map((xl, i) => /* @__PURE__ */ React.createElement(
+      }), /* @__PURE__ */ React.createElement(
         "text",
         {
-          key: i,
-          x: xl.x,
-          y: H - 2,
-          textAnchor: "middle",
-          fontSize: "7.5",
-          fill: inkFaint,
-          fontFamily: "monospace"
-        },
-        xl.label
-      )), nowX != null && /* @__PURE__ */ React.createElement(
-        "text",
-        {
-          x: nowX,
-          y: PT - 2,
-          textAnchor: "middle",
+          x: PL - 4,
+          y: PT + 5,
+          textAnchor: "end",
           fontSize: "7",
-          fill: ink,
-          fontFamily: "monospace",
-          fontWeight: "600"
+          fill: "var(--ink-faint)",
+          fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
         },
-        "now"
-      ), snowRows.map((r, i) => /* @__PURE__ */ React.createElement(
-        "circle",
+        maxPrecip.toFixed(1)
+      ), /* @__PURE__ */ React.createElement(
+        "text",
         {
-          key: i,
-          cx: xOf(new Date(r.time).getTime()),
-          cy: PT + 2,
-          r: "1.5",
-          fill: "var(--blue)",
-          opacity: "0.7"
-        }
-      )), rainRows.map((r, i) => /* @__PURE__ */ React.createElement(
-        "circle",
-        {
-          key: i,
-          cx: xOf(new Date(r.time).getTime()),
-          cy: PT + 2,
-          r: "1.5",
-          fill: ink,
-          opacity: "0.35"
-        }
-      )), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT, x2: PL, y2: PT + GH, stroke: rule, strokeWidth: "1" }), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT + GH, x2: PL + GW, y2: PT + GH, stroke: rule, strokeWidth: "1" }));
+          x: PL - 4,
+          y: PT + GH,
+          textAnchor: "end",
+          fontSize: "7",
+          fill: "var(--ink-faint)",
+          fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
+        },
+        "0"
+      ), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT, x2: PL, y2: PT + GH, stroke: "var(--rule)", strokeWidth: "1" }), /* @__PURE__ */ React.createElement("line", { x1: PL, y1: PT + GH, x2: PL + GW, y2: PT + GH, stroke: "var(--rule)", strokeWidth: "0.5" }));
     }
-    function ForecastSummary({ rows, useCelsius: useCelsius2 }) {
-      if (!rows?.length) return null;
+    function ForecastStats({ rows, useCelsius: useCelsius2 }) {
       const temps = rows.map((r) => useCelsius2 ? fToC(r.tempF) : r.tempF).filter((v) => v != null);
       const lo = Math.min(...temps), hi = Math.max(...temps);
       const totalPrecip = rows.reduce((s, r) => s + (r.precip || 0), 0);
@@ -3597,76 +3729,133 @@ Outcome: Eliminated`;
       const rainHours = rows.filter((r) => hasRain(r.code)).length;
       const maxWind = Math.max(...rows.map((r) => r.windMph || 0));
       const unit = useCelsius2 ? "\xB0C" : "\xB0F";
-      return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 8 } }, [
-        ["Hi / Lo", `${hi}${unit} / ${lo}${unit}`],
-        ["Precip", totalPrecip > 0.1 ? `${totalPrecip.toFixed(1)} mm` : "None"],
-        ["Max Wind", maxWind > 0 ? `${maxWind} mph` : "Calm"],
-        ["Snow", snowHours > 0 ? `${snowHours}h` : "\u2014"],
-        ["Rain", rainHours > 0 ? `${rainHours}h` : "\u2014"]
-      ].map(([k, v]) => /* @__PURE__ */ React.createElement("div", { key: k, style: { background: "var(--paper-2)", borderRadius: 6, padding: "6px 8px" } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
+      const stats = [
+        { k: "HI / LO", v: `${hi}${unit} / ${lo}${unit}` },
+        { k: "PRECIP", v: totalPrecip > 0.1 ? `${totalPrecip.toFixed(1)} mm` : "None" },
+        { k: "WIND", v: maxWind > 1 ? `${maxWind} mph` : "Calm" },
+        { k: "SNOW", v: snowHours > 0 ? `${snowHours}h` : "\u2014" },
+        { k: "RAIN", v: rainHours > 0 ? `${rainHours}h` : "\u2014" }
+      ];
+      return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 0, borderTop: "1px solid var(--rule)", marginTop: 0 } }, stats.map(({ k, v }, i) => /* @__PURE__ */ React.createElement("div", { key: k, style: {
+        flex: 1,
+        padding: "8px 0 8px 10px",
+        borderRight: i < stats.length - 1 ? "1px solid var(--rule)" : "none"
+      } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
         fontSize: 8,
         color: "var(--ink-faint)",
-        textTransform: "uppercase",
         letterSpacing: "0.08em",
-        marginBottom: 2
-      } }, k), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700 } }, v))));
+        marginBottom: 3
+      } }, k), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, lineHeight: 1 } }, v))));
     }
-    return /* @__PURE__ */ React.createElement("div", { style: {
-      background: "var(--paper-2)",
-      borderRadius: 10,
-      border: "1px solid var(--rule)",
-      marginTop: 16,
-      overflow: "hidden"
-    } }, /* @__PURE__ */ React.createElement(
+    const hasData = fc?.hourly?.length > 0;
+    return /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginTop: 16, overflow: "hidden" } }, /* @__PURE__ */ React.createElement(
       "div",
       {
         onClick: () => setExpanded((e) => !e),
         style: {
-          padding: "12px 14px",
+          padding: "11px 14px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          cursor: "pointer"
+          cursor: "pointer",
+          userSelect: "none"
         }
       },
-      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 700 } }, "48h Forecast"), fc?.locationLabel && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, fc.locationLabel), fc?.fetchedAt && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 9, color: "var(--ink-faint)" } }, "\xB7 fetched ", fmtTime(fc.fetchedAt))),
-      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, fc && /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 700, flexShrink: 0 } }, "48h Forecast"), fc?.locationLabel && /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+        fontSize: 10,
+        color: "var(--ink-faint)",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      } }, fc.locationLabel)),
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } }, fc?.fetchedAt && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 9, color: "var(--ink-faint)" } }, fmtTime(fc.fetchedAt)), hasData && /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "btn-ghost",
-          style: { fontSize: 11, padding: "4px 10px", minHeight: 28 },
+          style: { fontSize: 11, padding: "3px 10px", minHeight: 28, lineHeight: 1 },
           onClick: (e) => {
             e.stopPropagation();
             doRefresh();
           }
         },
         "Refresh"
-      ), /* @__PURE__ */ React.createElement(ChevronIcon, { size: 14, color: "var(--ink-faint)", up: expanded }))
-    ), expanded && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 14px", borderTop: "1px solid var(--rule)" } }, fc?.hourly?.length > 0 ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(ForecastGraph, { rows: fc.hourly, useCelsius })), /* @__PURE__ */ React.createElement("div", { style: {
+      ), /* @__PURE__ */ React.createElement(ChevronIcon, { size: 13, color: "var(--ink-faint)", up: expanded }))
+    ), expanded && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid var(--rule)" } }, dateWarning && /* @__PURE__ */ React.createElement("div", { style: {
+      margin: "10px 14px 0",
+      padding: "8px 12px",
+      background: "var(--paper-2)",
+      borderRadius: 6,
+      borderLeft: "3px solid var(--amber)",
+      fontSize: 12,
+      color: "var(--ink-mid)",
+      lineHeight: 1.5
+    } }, "\u26A0 ", dateWarning), hasData ? /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 14px 0" } }, /* @__PURE__ */ React.createElement("div", { style: {
       display: "flex",
-      gap: 12,
-      marginTop: 6,
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      marginBottom: 4
+    } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
       fontSize: 9,
       color: "var(--ink-faint)",
-      fontFamily: "monospace"
-    } }, /* @__PURE__ */ React.createElement("span", null, "\u2500\u2500 temperature"), fc.hourly.some((r) => hasSnow(r.code)) && /* @__PURE__ */ React.createElement("span", { style: { color: "var(--blue)" } }, "\u25CF snow hours"), fc.hourly.some((r) => hasRain(r.code)) && /* @__PURE__ */ React.createElement("span", null, "\u25E6 rain hours"), /* @__PURE__ */ React.createElement("span", null, "\u2502 precip bars")), /* @__PURE__ */ React.createElement(ForecastSummary, { rows: fc.hourly, useCelsius })) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-faint)", padding: "12px 0", lineHeight: 1.6 } }, "No forecast downloaded yet. Use GPS or search to download 48h of forecast data. Data is saved locally so it's available offline."), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
+      letterSpacing: "0.08em"
+    } }, "TEMPERATURE"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+      fontSize: 9,
+      color: "var(--ink-faint)",
+      letterSpacing: "0.08em"
+    } }, useCelsius ? "\xB0C" : "\xB0F")), /* @__PURE__ */ React.createElement(TempChart, { rows: fc.hourly, useCelsius }), /* @__PURE__ */ React.createElement("div", { style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      marginTop: 10,
+      marginBottom: 4
+    } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+      fontSize: 9,
+      color: "var(--ink-faint)",
+      letterSpacing: "0.08em"
+    } }, "PRECIPITATION"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: {
+      fontSize: 9,
+      color: "var(--ink-faint)",
+      display: "flex",
+      alignItems: "center",
+      gap: 3
+    } }, /* @__PURE__ */ React.createElement("span", { style: {
+      display: "inline-block",
+      width: 8,
+      height: 8,
+      background: "var(--ink)",
+      borderRadius: 1,
+      opacity: 0.75
+    } }), "snow"), /* @__PURE__ */ React.createElement("span", { style: {
+      fontSize: 9,
+      color: "var(--ink-faint)",
+      display: "flex",
+      alignItems: "center",
+      gap: 3
+    } }, /* @__PURE__ */ React.createElement("span", { style: {
+      display: "inline-block",
+      width: 8,
+      height: 8,
+      background: "var(--ink-mid)",
+      borderRadius: 1,
+      opacity: 0.5
+    } }), "rain"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 8, color: "var(--ink-faint)" } }, "mm"))), /* @__PURE__ */ React.createElement(PrecipChart, { rows: fc.hourly }), /* @__PURE__ */ React.createElement(XAxisLabels, { rows: fc.hourly })) : /* @__PURE__ */ React.createElement("div", { style: { padding: "14px", fontSize: 13, color: "var(--ink-faint)", lineHeight: 1.6 } }, "No forecast downloaded yet. Tap GPS or search to download 48h of hourly data. Saved locally \u2014 works offline."), hasData && /* @__PURE__ */ React.createElement(ForecastStats, { rows: fc.hourly, useCelsius }), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 14px 14px", borderTop: "1px solid var(--rule)", marginTop: hasData ? 0 : 0 } }, /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "btn",
         onClick: doGPS,
         disabled: fetching,
-        style: { width: "100%", marginBottom: 8, fontSize: 13 }
+        style: { width: "100%", marginBottom: 8 }
       },
-      fetching && !geoResults.length ? "Fetching\u2026" : "Use GPS to Download Forecast"
+      fetching && !geoResults.length ? "Fetching\u2026" : "Use GPS"
     ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(
       "input",
       {
         className: "inp",
-        placeholder: "Or search venue / city\u2026",
         value: place,
         onChange: (e) => setPlace(e.target.value),
         onKeyDown: (e) => e.key === "Enter" && doSearch(),
-        style: { flex: 1, fontSize: 13 }
+        placeholder: "Search venue or city\u2026",
+        style: { flex: 1 }
       }
     ), /* @__PURE__ */ React.createElement(
       "button",
@@ -3674,7 +3863,7 @@ Outcome: Eliminated`;
         className: "btn-ghost",
         onClick: doSearch,
         disabled: fetching,
-        style: { fontSize: 13, padding: "0 12px" }
+        style: { padding: "0 14px" }
       },
       "Search"
     )), geoResults.length > 1 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, geoResults.map((geo, i) => /* @__PURE__ */ React.createElement(
@@ -3687,9 +3876,9 @@ Outcome: Eliminated`;
           width: "100%",
           textAlign: "left",
           marginBottom: 4,
-          fontSize: 12,
-          padding: "7px 12px",
-          minHeight: 34
+          fontSize: 13,
+          padding: "9px 12px",
+          minHeight: 40
         }
       },
       geo.label
@@ -3698,10 +3887,10 @@ Outcome: Eliminated`;
       {
         onClick: () => setGeoResults([]),
         className: "btn-text",
-        style: { fontSize: 11, padding: "2px 0" }
+        style: { fontSize: 12, padding: "4px 0" }
       },
       "Cancel"
-    )), msg && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--green)", marginTop: 6, fontWeight: 500 } }, msg), err && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--red)", marginTop: 6 } }, err))));
+    )), msg && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--green)", marginTop: 8, fontWeight: 500 } }, msg), err && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--red)", marginTop: 8 } }, err))));
   }
   function ConditionsTrend({ events, useCelsius }) {
     const points = [];
