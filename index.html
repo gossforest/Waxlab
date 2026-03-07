@@ -4610,7 +4610,7 @@ Outcome: Eliminated`;
     skis.forEach((s) => {
       skiMap[s.id] = s;
     });
-    function getComp2(skiId) {
+    function getComp(skiId) {
       const s = skiMap[skiId];
       if (!s) return null;
       const r = s.ratings || {};
@@ -4856,7 +4856,7 @@ Outcome: Eliminated`;
         const isTie = !!match?.tie;
         const isElimHere = match?.loser === id && !isTie;
         const isWinHere = match?.winner === id;
-        const score = getComp2(id);
+        const score = getComp(id);
         const borderCol = isElimHere ? "var(--red)" : isTie ? "var(--amber)" : isBye ? "var(--amber)" : isWinHere ? "var(--ink)" : "var(--rule)";
         return /* @__PURE__ */ React.createElement("g", { key: id, opacity: isElimHere ? 0.55 : 1 }, /* @__PURE__ */ React.createElement(
           "rect",
@@ -4948,7 +4948,7 @@ Outcome: Eliminated`;
       }))),
       finalWinner && (() => {
         const slot = skiSlot[finalWinner.id];
-        const score = getComp2(finalWinner.id);
+        const score = getComp(finalWinner.id);
         return /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement(
           "rect",
           {
@@ -5013,7 +5013,7 @@ Outcome: Eliminated`;
       })(),
       runnerUp && (() => {
         const slot = skiSlot[runnerUp.id];
-        const score = getComp2(runnerUp.id);
+        const score = getComp(runnerUp.id);
         return /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement(
           "rect",
           {
@@ -5145,7 +5145,7 @@ Outcome: Eliminated`;
     dim = false,
     isBlind,
     isGlide,
-    getComp: getComp2,
+    getComp,
     max: max2,
     currentPair,
     winner,
@@ -5170,7 +5170,7 @@ Outcome: Eliminated`;
     lastRoundFor
   }) {
     const [open, setOpen] = useState(false);
-    const comp = getComp2(ski);
+    const comp = getComp(ski);
     const hist = lastRoundFor(ski.id);
     const isElim = ski.standing === "Eliminated";
     const isTied = ski.standing === "Tied";
@@ -5353,6 +5353,7 @@ Outcome: Eliminated`;
     const [undoStack, setUndoStack] = useState([]);
     const [undoVisible, setUndoVisible] = useState(false);
     const [currentPair, setCurrentPair] = useState(null);
+    const [pairActed, setPairActed] = useState(/* @__PURE__ */ new Set());
     const [newId, setNewId] = useState("");
     const [newProduct, setNewProduct] = useState("");
     const [newApp, setNewApp] = useState("");
@@ -5369,6 +5370,12 @@ Outcome: Eliminated`;
     const winner = (test.skis || []).find((s) => s.standing === "Winner");
     const tied = (test.skis || []).filter((s) => s.standing === "Tied");
     const isBlind = test.blindMode && !test.blindRevealed;
+    const getComp = (s) => {
+      const r = s.ratings || {};
+      if (isGlide) return r.glide ?? null;
+      return r.kick != null && r.glide != null ? r.kick + r.glide : null;
+    };
+    const compMax = isGlide ? 10 : 20;
     function upd(patch) {
       onUpdate({ ...test, ...patch });
     }
@@ -5392,9 +5399,10 @@ Outcome: Eliminated`;
       const opponentId = currentPair ? currentPair.find((id) => id !== skiId) : null;
       const rs = computeRoundState(test.rounds || [], test.skis || []);
       const roundNum = rs.currentRound;
-      const newRound = { roundNum, skiA: skiId, skiB: opponentId || null, winner: skiId, loser: opponentId || null };
+      const newRound = { roundNum, skiA: skiId, skiB: opponentId || null, winner: skiId, loser: null };
       upd({ skis: newSkis, rounds: [...test.rounds || [], newRound] });
       pushUndo(snap, `Advanced ${skiId}`);
+      setPairActed((prev) => /* @__PURE__ */ new Set([...prev, skiId]));
     }
     function eliminate(skiId) {
       const snap = [...test.skis || []];
@@ -5407,6 +5415,7 @@ Outcome: Eliminated`;
         rounds: [...test.rounds || [], newRound]
       });
       pushUndo(snap, `Eliminated ${skiId}`);
+      setPairActed((prev) => /* @__PURE__ */ new Set([...prev, skiId]));
     }
     function restore(skiId) {
       const rs = computeRoundState(test.rounds || [], test.skis || []);
@@ -5491,6 +5500,7 @@ Outcome: Eliminated`;
       };
       upd({ rounds: [...test.rounds || [], newRound] });
       pushUndo(snap, `${skiId} placed 2nd`);
+      setPairActed((prev) => /* @__PURE__ */ new Set([...prev, skiId]));
     }
     function declareTie() {
       if (activeSki.length !== 2) return;
@@ -5763,36 +5773,34 @@ Outcome: Eliminated`;
       const skiA = (test.skis || []).find((s) => s.id === idA);
       const skiB = (test.skis || []).find((s) => s.id === idB);
       if (!skiA || !skiB) return null;
-      const getComp2 = (ski) => {
+      const pairGetComp = (ski) => {
         const r = ski.ratings || {};
         if (isGlide) return r.glide ?? null;
         return r.kick != null && r.glide != null ? r.kick + r.glide : r.glide ?? r.kick ?? null;
       };
       const max2 = isGlide ? 10 : 20;
-      const rs = roundState;
-      const matchForPair = rs ? rs.currentMatches.find(
-        (m) => m.skiA === idA && m.skiB === idB || m.skiA === idB && m.skiB === idA
-      ) : null;
-      const actedThisRound = (_id) => !!matchForPair;
-      const resultForSki = (id) => {
-        if (!matchForPair) return null;
-        if (matchForPair.tie) return { label: "TIE", color: "var(--amber)" };
-        if (matchForPair.winner === id) return { label: "ADV", color: "var(--green)" };
-        if (matchForPair.loser === id) {
-          return matchForPair.runnerUp ? { label: "2ND", color: "var(--amber)" } : { label: "OUT", color: "var(--red)" };
+      const actedA = pairActed.has(idA);
+      const actedB = pairActed.has(idB);
+      const bothActed = actedA && actedB;
+      const resultForSki = (ski) => {
+        const rounds = test.rounds || [];
+        for (let i = rounds.length - 1; i >= 0; i--) {
+          const r = rounds[i];
+          if (r.tie && (r.skiA === ski.id || r.skiB === ski.id)) return { label: "TIE", color: "var(--amber)" };
+          if (r.winner === ski.id && (r.skiA === ski.id || r.skiB === ski.id)) return { label: "ADV", color: "var(--green)" };
+          if (r.loser === ski.id) return r.runnerUp ? { label: "2ND", color: "var(--amber)" } : { label: "OUT", color: "var(--red)" };
         }
         return null;
       };
-      function PairSkiPanel({ ski }) {
-        const acted = actedThisRound(ski.id);
-        const res = resultForSki(ski.id);
+      const renderSkiPanel = (ski, acted) => {
+        const res = acted ? resultForSki(ski) : null;
         return /* @__PURE__ */ React.createElement("div", { style: {
           flex: 1,
           minWidth: 0,
           display: "flex",
           flexDirection: "column",
           opacity: acted ? 0.8 : 1
-        } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 17, fontWeight: 800 } }, ski.id), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center" } }, getComp2(ski) != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: getComp2(ski), max: max2 }), res && /* @__PURE__ */ React.createElement("span", { style: {
+        } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 12px", borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 17, fontWeight: 800 } }, ski.id), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center" } }, pairGetComp(ski) != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: pairGetComp(ski), max: max2 }), res && /* @__PURE__ */ React.createElement("span", { style: {
           fontSize: 10,
           fontWeight: 800,
           color: res.color,
@@ -5867,8 +5875,7 @@ Outcome: Eliminated`;
           /* @__PURE__ */ React.createElement(EliminateIcon, { size: 13, color: "#fff" }),
           " Out"
         )));
-      }
-      const bothActed = actedThisRound(skiA.id) && actedThisRound(skiB.id);
+      };
       const nextSuggestion = bothActed ? suggestPair(roundState) : null;
       return /* @__PURE__ */ React.createElement("div", { style: {
         borderRadius: 10,
@@ -5890,7 +5897,10 @@ Outcome: Eliminated`;
       } }, bothActed ? "COMPARISON COMPLETE" : "ACTIVE COMPARISON"), /* @__PURE__ */ React.createElement(
         "button",
         {
-          onClick: () => setCurrentPair(null),
+          onClick: () => {
+            setCurrentPair(null);
+            setPairActed(/* @__PURE__ */ new Set());
+          },
           style: {
             background: "transparent",
             border: "none",
@@ -5903,7 +5913,7 @@ Outcome: Eliminated`;
           }
         },
         "\xD7"
-      )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex" } }, /* @__PURE__ */ React.createElement(PairSkiPanel, { ski: skiA }), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), /* @__PURE__ */ React.createElement("div", { style: {
+      )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex" } }, renderSkiPanel(skiA, actedA), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), /* @__PURE__ */ React.createElement("div", { style: {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -5914,18 +5924,21 @@ Outcome: Eliminated`;
         color: "var(--ink-faint)",
         writingMode: "vertical-rl",
         letterSpacing: "0.1em"
-      } }, "VS"), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), /* @__PURE__ */ React.createElement(PairSkiPanel, { ski: skiB })), bothActed && /* @__PURE__ */ React.createElement("div", { style: {
+      } }, "VS"), /* @__PURE__ */ React.createElement("div", { style: { width: 1, background: "var(--rule)", flexShrink: 0, alignSelf: "stretch" } }), renderSkiPanel(skiB, actedB)), bothActed && /* @__PURE__ */ React.createElement("div", { style: {
         padding: "10px 14px",
         borderTop: "1px solid var(--rule)",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center"
-      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--ink-faint)" } }, roundState?.roundComplete ? "Round complete \u2014 next round below" : "Select next pair below"), nextSuggestion && /* @__PURE__ */ React.createElement(
+      } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--ink-faint)" } }, roundState?.roundComplete ? "Round complete \u2713" : "Select next pair below"), nextSuggestion && /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "btn-ghost",
           style: { fontSize: 12, padding: "5px 12px", minHeight: 32 },
-          onClick: () => setCurrentPair([nextSuggestion[0].id, nextSuggestion[1].id])
+          onClick: () => {
+            setCurrentPair([nextSuggestion[0].id, nextSuggestion[1].id]);
+            setPairActed(/* @__PURE__ */ new Set());
+          }
         },
         "Next: ",
         nextSuggestion[0].id,
@@ -5937,22 +5950,17 @@ Outcome: Eliminated`;
         {
           className: "btn-ghost",
           style: { fontSize: 12, padding: "5px 12px", minHeight: 32 },
-          onClick: () => setCurrentPair(null)
+          onClick: () => {
+            setCurrentPair(null);
+            setPairActed(/* @__PURE__ */ new Set());
+          }
         },
         "Done \xD7"
       )));
     })(), (() => {
       const rs = roundState;
       const allSkis = test.skis || [];
-      const getComp2 = (s) => {
-        const r = s.ratings || {};
-        if (isGlide) return r.glide ?? null;
-        return r.kick != null && r.glide != null ? r.kick + r.glide : null;
-      };
-      const max2 = isGlide ? 10 : 20;
       const testedIds = rs ? rs.pairedThisRound : /* @__PURE__ */ new Set();
-      const activeUntested = activeSki.filter((s) => !testedIds.has(s.id));
-      const activeTested = activeSki.filter((s) => testedIds.has(s.id));
       const elimSkis = allSkis.filter((s) => s.standing === "Eliminated");
       const tiedSkis = allSkis.filter((s) => s.standing === "Tied");
       const lastRoundFor = (id) => {
@@ -5969,8 +5977,8 @@ Outcome: Eliminated`;
       const rowProps = {
         isBlind,
         isGlide,
-        getComp: getComp2,
-        max: max2,
+        getComp,
+        max,
         currentPair,
         winner,
         roundState: rs,
@@ -6017,14 +6025,15 @@ Outcome: Eliminated`;
           onClick: () => setCurrentPair(null)
         },
         "Clear"
-      ))), activeUntested.map((ski) => /* @__PURE__ */ React.createElement(TournamentSkiRow, { key: ski.id, ski, status: "active", ...rowProps })), activeTested.length > 0 && activeUntested.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
-        fontSize: 10,
-        fontWeight: 700,
-        color: "var(--ink-faint)",
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        padding: "6px 2px 4px"
-      } }, "Tested this round"), activeTested.map((ski) => /* @__PURE__ */ React.createElement(TournamentSkiRow, { key: ski.id, ski, status: "tested", ...rowProps })), elimSkis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+      ))), activeSki.map((ski) => /* @__PURE__ */ React.createElement(
+        TournamentSkiRow,
+        {
+          key: ski.id,
+          ski,
+          status: testedIds.has(ski.id) ? "tested" : "active",
+          ...rowProps
+        }
+      )), elimSkis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
         fontSize: 10,
         fontWeight: 700,
         color: "var(--ink-faint)",
@@ -6104,7 +6113,7 @@ Outcome: Eliminated`;
         !isBlind && ski.product && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, fontWeight: 400, color: "var(--ink-mid)" } }, ski.product),
         (() => {
           const c = getComp(ski);
-          return c != null ? /* @__PURE__ */ React.createElement(RatingBadge, { score: c, max }) : null;
+          return c != null ? /* @__PURE__ */ React.createElement(RatingBadge, { score: c, max: compMax }) : null;
         })()
       )), activeSki.length === 2 && /* @__PURE__ */ React.createElement(
         "button",
