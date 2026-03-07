@@ -4661,7 +4661,8 @@ Outcome: Eliminated`;
     trueRounds.forEach((tr) => {
       const prev = new Set(aliveAtRound[aliveAtRound.length - 1]);
       tr.matches.forEach((m) => {
-        if (m.loser && !m.tie) prev.delete(m.loser);
+        if (m.restore && m.skiId) prev.add(m.skiId);
+        else if (m.loser && !m.tie && !m.runnerUp) prev.delete(m.loser);
       });
       aliveAtRound.push(prev);
     });
@@ -4811,7 +4812,7 @@ Outcome: Eliminated`;
             strokeDasharray: "3,2",
             opacity: "0.7"
           }
-        )), losSlot != null && !isTie && /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement(
+        )), losSlot != null && !isTie && !m.runnerUp && /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement(
           "line",
           {
             x1: bx,
@@ -4832,7 +4833,19 @@ Outcome: Eliminated`;
             fill: "var(--red)",
             opacity: "0.5"
           }
-        )));
+        )), losSlot != null && !isTie && m.runnerUp && /* @__PURE__ */ React.createElement(
+          "line",
+          {
+            x1: bx,
+            y1: ncy(losSlot),
+            x2: nextX,
+            y2: ncy(losSlot),
+            stroke: "var(--amber)",
+            strokeWidth: "1",
+            strokeDasharray: "4,2",
+            opacity: "0.8"
+          }
+        ));
       }), tr.byes.map((id) => /* @__PURE__ */ React.createElement(
         "line",
         {
@@ -4846,7 +4859,32 @@ Outcome: Eliminated`;
           strokeDasharray: "4,3",
           opacity: "0.6"
         }
-      )))),
+      )), tr.matches.filter((m) => m.restore && m.skiA).map((m, ri) => /* @__PURE__ */ React.createElement("g", { key: `re-${ri}` }, /* @__PURE__ */ React.createElement(
+        "line",
+        {
+          x1: nx(ci) - 18,
+          y1: ncy(skiSlot[m.skiA]),
+          x2: nx(ci),
+          y2: ncy(skiSlot[m.skiA]),
+          stroke: "var(--blue)",
+          strokeWidth: "1.5",
+          strokeDasharray: "3,2",
+          opacity: "0.7"
+        }
+      ), /* @__PURE__ */ React.createElement(
+        "text",
+        {
+          x: nx(ci) - 20,
+          y: ncy(skiSlot[m.skiA]) + 4,
+          textAnchor: "end",
+          fontSize: "6",
+          fontWeight: "700",
+          fill: "var(--blue)",
+          fontFamily: MONO_F,
+          opacity: "0.8"
+        },
+        "\u21A9"
+      ))))),
       trueRounds.map((tr, ci) => /* @__PURE__ */ React.createElement("g", { key: `nodes-${ci}` }, [...aliveAtRound[ci]].map((id) => {
         const ski = skiMap[id];
         if (!ski) return null;
@@ -4854,11 +4892,13 @@ Outcome: Eliminated`;
         const match = tr.matches.find((m) => m.skiA === id || m.skiB === id);
         const isBye = tr.byes.includes(id);
         const isTie = !!match?.tie;
-        const isElimHere = match?.loser === id && !isTie;
+        const isElimHere = match?.loser === id && !isTie && !match?.runnerUp;
         const isWinHere = match?.winner === id;
         const score = getComp(id);
-        const borderCol = isElimHere ? "var(--red)" : isTie ? "var(--amber)" : isBye ? "var(--amber)" : isWinHere ? "var(--ink)" : "var(--rule)";
-        return /* @__PURE__ */ React.createElement("g", { key: id, opacity: isElimHere ? 0.55 : 1 }, /* @__PURE__ */ React.createElement(
+        const is2nd = match?.loser === id && !!match?.runnerUp;
+        const isRestore = !!match?.restore && match?.skiA === id;
+        const borderCol = isElimHere ? "var(--red)" : is2nd ? "var(--amber)" : isTie ? "var(--amber)" : isBye ? "var(--amber)" : isRestore ? "var(--blue)" : isWinHere ? "var(--ink)" : "var(--rule)";
+        return /* @__PURE__ */ React.createElement("g", { key: id, opacity: isElimHere ? 0.5 : 1 }, /* @__PURE__ */ React.createElement(
           "rect",
           {
             x: nx(ci),
@@ -4878,7 +4918,7 @@ Outcome: Eliminated`;
             fontSize: "12",
             fontWeight: "700",
             fontFamily: MONO_F,
-            fill: isElimHere ? "var(--ink-faint)" : "var(--ink)"
+            fill: isElimHere ? "var(--ink-faint)" : is2nd ? "var(--amber)" : isRestore ? "var(--blue)" : "var(--ink)"
           },
           id
         ), !isBlind && ski.product && /* @__PURE__ */ React.createElement(
@@ -4918,6 +4958,32 @@ Outcome: Eliminated`;
             fill: "var(--red)"
           },
           "OUT"
+        ), is2nd && /* @__PURE__ */ React.createElement(
+          "text",
+          {
+            x: nx(ci) + NODE_W - 7,
+            y: ny(slot) + 27,
+            textAnchor: "end",
+            fontSize: "7",
+            fontWeight: "600",
+            fontFamily: MONO_F,
+            letterSpacing: "0.06em",
+            fill: "var(--amber)"
+          },
+          "2ND"
+        ), isRestore && /* @__PURE__ */ React.createElement(
+          "text",
+          {
+            x: nx(ci) + NODE_W - 7,
+            y: ny(slot) + 27,
+            textAnchor: "end",
+            fontSize: "7",
+            fontWeight: "600",
+            fontFamily: MONO_F,
+            letterSpacing: "0.06em",
+            fill: "var(--blue)"
+          },
+          "\u21A9 RE-ENTRY"
         ), isBye && /* @__PURE__ */ React.createElement(
           "text",
           {
@@ -5752,11 +5818,21 @@ Outcome: Eliminated`;
         isGlide,
         onAdvance: !winner ? ((id) => {
           const s = activeSki.find((x) => x.id === id);
-          if (s) advance(id);
+          if (!s) return;
+          if (!currentPair && activeSki.length === 2) {
+            const other = activeSki.find((x) => x.id !== id);
+            if (other) selectPair([id, other.id]);
+          }
+          advance(id);
         }) : null,
         onEliminate: !winner ? ((id) => {
           const s = activeSki.find((x) => x.id === id);
-          if (s) eliminate(id);
+          if (!s) return;
+          if (!currentPair && activeSki.length === 2) {
+            const other = activeSki.find((x) => x.id !== id);
+            if (other) selectPair([id, other.id]);
+          }
+          eliminate(id);
         }) : null,
         onWinner: !winner ? ((id) => declareWinner(id)) : null,
         onRestore: (id) => restore(id),
@@ -5771,7 +5847,7 @@ Outcome: Eliminated`;
         onPair: (id1, id2) => {
           const s1 = activeSki.find((s) => s.id === id1);
           const s2 = activeSki.find((s) => s.id === id2);
-          if (s1 && s2) setCurrentPair([id1, id2]);
+          if (s1 && s2) selectPair([id1, id2]);
         },
         onRunnerUp: (id) => markRunnerUp(id),
         onSnowTemp: (val) => {
