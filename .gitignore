@@ -1,4 +1,9 @@
-# Don't commit generated files
+# Don't commit generated or sensitive files
 node_modules/
 .env
 *.log
+
+# config.js is auto-generated at build time from Netlify env vars.
+# It contains your Supabase credentials — never commit it.
+# For local development, fill in a local copy manually (see config.js).
+config.js

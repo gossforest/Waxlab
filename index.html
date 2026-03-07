@@ -46,8 +46,109 @@ var AppBundle = (() => {
     } catch {
     }
   }
+  function mergeSkis(skisA, skisB) {
+    const aMap = Object.fromEntries((skisA || []).map((s) => [s.id, s]));
+    const bMap = Object.fromEntries((skisB || []).map((s) => [s.id, s]));
+    const allIds = [.../* @__PURE__ */ new Set([...(skisA || []).map((s) => s.id), ...(skisB || []).map((s) => s.id)])];
+    return allIds.map((id) => {
+      const sa = aMap[id], sb = bMap[id];
+      if (!sa) return sb;
+      if (!sb) return sa;
+      const richer = fieldScore(sa) >= fieldScore(sb) ? sa : sb;
+      const other = richer === sa ? sb : sa;
+      const photos = unionById([...sa.photos || []], [...sb.photos || []], (p) => p.storagePath || p.idbKey || p.thumb);
+      return {
+        ...other,
+        ...richer,
+        ratings: mergeRatings(sa.ratings, sb.ratings),
+        feelNotes: sa.feelNotes || sb.feelNotes || "",
+        photos
+      };
+    });
+  }
+  function mergeRatings(rA, rB) {
+    const a = rA || {}, b = rB || {};
+    const keys = [.../* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)])];
+    const out = {};
+    keys.forEach((k) => {
+      if (a[k] == null) out[k] = b[k];
+      else if (b[k] == null) out[k] = a[k];
+      else out[k] = Math.max(a[k], b[k]);
+    });
+    return out;
+  }
+  function mergeRounds(roundsA, roundsB) {
+    const all = [...roundsA || [], ...roundsB || []];
+    const seen = /* @__PURE__ */ new Set();
+    return all.filter((r) => {
+      const key = `${r.roundNum}|${r.skiA || ""}|${r.skiB || ""}|${r.winner || ""}|${r.loser || ""}|${!!r.restore}|${!!r.tie}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function mergeTests(testsA, testsB) {
+    const aMap = Object.fromEntries((testsA || []).map((t) => [t.id, t]));
+    const bMap = Object.fromEntries((testsB || []).map((t) => [t.id, t]));
+    const allIds = [.../* @__PURE__ */ new Set([...(testsA || []).map((t) => t.id), ...(testsB || []).map((t) => t.id)])];
+    return allIds.map((id) => {
+      const ta = aMap[id], tb = bMap[id];
+      if (!ta) return tb;
+      if (!tb) return ta;
+      const richer = fieldScore(ta) >= fieldScore(tb) ? ta : tb;
+      const other = richer === ta ? tb : ta;
+      return {
+        ...other,
+        ...richer,
+        skis: mergeSkis(ta.skis, tb.skis),
+        rounds: mergeRounds(ta.rounds, tb.rounds),
+        snowTemps: unionById([...ta.snowTemps || []], [...tb.snowTemps || []], (t) => t.ts),
+        airTemps: unionById([...ta.airTemps || []], [...tb.airTemps || []], (t) => t.ts),
+        notes: ta.notes || tb.notes || ""
+      };
+    });
+  }
+  function mergeSessions(sessA, sessB) {
+    const aMap = Object.fromEntries((sessA || []).map((s) => [s.id, s]));
+    const bMap = Object.fromEntries((sessB || []).map((s) => [s.id, s]));
+    const allIds = [.../* @__PURE__ */ new Set([...(sessA || []).map((s) => s.id), ...(sessB || []).map((s) => s.id)])];
+    return allIds.map((id) => {
+      const sa = aMap[id], sb = bMap[id];
+      if (!sa) return sb;
+      if (!sb) return sa;
+      const richer = fieldScore(sa) >= fieldScore(sb) ? sa : sb;
+      const other = richer === sa ? sb : sa;
+      return {
+        ...other,
+        ...richer,
+        tests: mergeTests(sa.tests, sb.tests),
+        notes: sa.notes || sb.notes || ""
+      };
+    });
+  }
+  function mergeEventSessions(a, b) {
+    const sessions = mergeSessions(a.sessions, b.sessions);
+    return {
+      ...b,
+      // start with remote as base
+      ...a,
+      // local fields override (local user's edits win on scalars)
+      // Explicitly union array/object fields rather than letting spread pick one side
+      sessions
+    };
+  }
+  function fieldScore(obj) {
+    if (!obj) return 0;
+    return JSON.stringify(obj).length;
+  }
+  function unionById(arrA, arrB, keyFn) {
+    const seen = new Set(arrA.map(keyFn));
+    return [...arrA, ...arrB.filter((x) => !seen.has(keyFn(x)))];
+  }
   async function loadTeamEvents(teamCode) {
-    return lsGet(`waxlab:events:${teamCode}`) || [];
+    const evs = lsGet(`waxlab:events:${teamCode}`) || [];
+    const deleted = new Set(lsGet(`waxlab:deleted:${teamCode}`) || []);
+    return deleted.size ? evs.filter((e) => !deleted.has(e.id)) : evs;
   }
   async function bgSyncEvents(teamCode, setEvents) {
     if (!db) return;
@@ -59,13 +160,25 @@ var AppBundle = (() => {
       const deleted = lsGet(`waxlab:deleted:${teamCode}`) || [];
       const deletedSet = new Set(deleted);
       const local = lsGet(`waxlab:events:${teamCode}`) || [];
-      const localMap = Object.fromEntries(local.map((e) => [e.id, e]));
-      let changed = false;
-      remote.forEach((ev) => {
+      let localFiltered = local.filter((e) => !deletedSet.has(e.id));
+      if (localFiltered.length !== local.length) {
+        lsSet(`waxlab:events:${teamCode}`, localFiltered);
+      }
+      const localMap = Object.fromEntries(localFiltered.map((e) => [e.id, e]));
+      let changed = localFiltered.length !== local.length;
+      const remoteWithTs = data.filter((r) => r.data).map((r) => ({ ev: r.data, ts: r.updated_at || "" }));
+      remoteWithTs.forEach(({ ev, ts }) => {
         if (deletedSet.has(ev.id)) return;
-        if (!localMap[ev.id]) {
+        const local2 = localMap[ev.id];
+        if (!local2) {
           localMap[ev.id] = ev;
           changed = true;
+        } else {
+          const localTs = local2._savedAt || "";
+          if (ts > localTs) {
+            localMap[ev.id] = mergeEventSessions(local2, ev);
+            changed = true;
+          }
         }
       });
       if (changed) {
@@ -87,19 +200,67 @@ var AppBundle = (() => {
       }
     });
   }
+  var WRITE_QUEUE_KEY = "waxlab:writeQueue";
+  function queueWrite(teamCode, event) {
+    try {
+      const q = lsGet(WRITE_QUEUE_KEY) || [];
+      const updated = q.filter((r) => r.eventId !== event.id);
+      updated.push({ teamCode, eventId: event.id, ts: Date.now() });
+      lsSet(WRITE_QUEUE_KEY, updated);
+    } catch (e) {
+    }
+  }
+  function dequeueWrite(eventId) {
+    try {
+      const q = lsGet(WRITE_QUEUE_KEY) || [];
+      lsSet(WRITE_QUEUE_KEY, q.filter((r) => r.eventId !== eventId));
+    } catch (e) {
+    }
+  }
+  async function flushWriteQueue() {
+    if (!db) return;
+    const q = lsGet(WRITE_QUEUE_KEY) || [];
+    if (!q.length) return;
+    const cutoff = Date.now() - 48 * 60 * 60 * 1e3;
+    const fresh = q.filter((r) => (r.ts || 0) > cutoff);
+    if (fresh.length !== q.length) lsSet(WRITE_QUEUE_KEY, fresh);
+    for (const { teamCode, eventId } of [...fresh]) {
+      const evs = lsGet(`waxlab:events:${teamCode}`) || [];
+      const ev = evs.find((e) => e.id === eventId);
+      if (!ev) {
+        dequeueWrite(eventId);
+        continue;
+      }
+      try {
+        const { error } = await db.from("waxlab_events").upsert(
+          { id: ev.id, team_code: teamCode, data: ev, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+          { onConflict: "id" }
+        );
+        if (!error) dequeueWrite(eventId);
+      } catch (e) {
+      }
+    }
+  }
   async function saveEvent(teamCode, event) {
+    const stamped = { ...event, _savedAt: (/* @__PURE__ */ new Date()).toISOString() };
     const ex = lsGet(`waxlab:events:${teamCode}`) || [];
     lsSet(
       `waxlab:events:${teamCode}`,
-      ex.find((e) => e.id === event.id) ? ex.map((e) => e.id === event.id ? event : e) : [...ex, event]
+      ex.find((e) => e.id === stamped.id) ? ex.map((e) => e.id === stamped.id ? stamped : e) : [...ex, stamped]
     );
     if (db) {
       db.from("waxlab_events").upsert(
-        { id: event.id, team_code: teamCode, data: event, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+        { id: stamped.id, team_code: teamCode, data: stamped, updated_at: stamped._savedAt },
         { onConflict: "id" }
       ).then(({ error }) => {
-        if (error) console.warn("saveEvent bg:", error.message);
-      }).catch((e) => console.warn("saveEvent bg:", e.message));
+        if (error) {
+          console.warn("saveEvent bg:", error.message);
+          queueWrite(teamCode, stamped);
+        } else dequeueWrite(stamped.id);
+      }).catch((e) => {
+        console.warn("saveEvent bg:", e.message);
+        queueWrite(teamCode, stamped);
+      });
     }
     return true;
   }
@@ -109,7 +270,15 @@ var AppBundle = (() => {
     const deleted = lsGet(`waxlab:deleted:${teamCode}`) || [];
     if (!deleted.includes(eventId)) lsSet(`waxlab:deleted:${teamCode}`, [...deleted, eventId]);
     if (db) {
-      db.from("waxlab_events").delete().eq("id", eventId).catch((e) => console.warn("deleteEvent bg:", e.message));
+      try {
+        const { error } = await db.from("waxlab_events").delete().eq("id", eventId);
+        if (error) {
+          await new Promise((r) => setTimeout(r, 1500));
+          await db.from("waxlab_events").delete().eq("id", eventId).catch((e) => console.warn("deleteEvent retry:", e.message));
+        }
+      } catch (e) {
+        console.warn("deleteEvent bg:", e.message);
+      }
     }
   }
   async function loadVocab() {
@@ -383,6 +552,7 @@ var AppBundle = (() => {
     } }, msg));
   }
   function SyncStatusBanner({ syncStatus, online, pendingCount }) {
+    const queuedCount = (lsGet(WRITE_QUEUE_KEY) || []).length;
     if (!online) return /* @__PURE__ */ React.createElement("div", { style: {
       background: "var(--amber)",
       color: "#fff",
@@ -392,7 +562,7 @@ var AppBundle = (() => {
       display: "flex",
       alignItems: "center",
       gap: 8
-    } }, /* @__PURE__ */ React.createElement("span", null, "\u26A0"), /* @__PURE__ */ React.createElement("span", null, "Offline \u2014 changes saved locally and will sync when reconnected"));
+    } }, /* @__PURE__ */ React.createElement("span", null, "\u26A0"), /* @__PURE__ */ React.createElement("span", null, "Offline \u2014 changes saved locally", queuedCount > 0 ? ` (${queuedCount} pending sync)` : "", " \xB7 will sync when reconnected"));
     if (syncStatus === "error") return /* @__PURE__ */ React.createElement("div", { style: {
       background: "var(--red)",
       color: "#fff",
@@ -1559,10 +1729,14 @@ Outcome: Eliminated`;
   function UnitPill({ useCelsius, onChange }) {
     return /* @__PURE__ */ React.createElement("div", { className: "unit-pill" }, /* @__PURE__ */ React.createElement("button", { className: !useCelsius ? "active" : "", onClick: () => onChange(false) }, "\xB0F"), /* @__PURE__ */ React.createElement("button", { className: useCelsius ? "active" : "", onClick: () => onChange(true) }, "\xB0C"));
   }
-  function useOnlineStatus() {
+  function useOnlineStatus(onReconnect) {
     const [online, setOnline] = useState(navigator.onLine);
     useEffect(() => {
-      const on = () => setOnline(true), off = () => setOnline(false);
+      const on = () => {
+        setOnline(true);
+        onReconnect?.();
+      };
+      const off = () => setOnline(false);
       window.addEventListener("online", on);
       window.addEventListener("offline", off);
       return () => {
@@ -7442,7 +7616,11 @@ Outcome: Eliminated`;
     }, [events, allEventsGlobal]);
     const [darkMode, setDarkMode] = useState(() => lsGet("waxlab:darkmode") || false);
     const [useCelsius, setUseCelsius] = useState(() => lsGet("waxlab:celsius") || false);
-    const online = useOnlineStatus();
+    const online = useOnlineStatus(() => {
+      flushWriteQueue().then(() => {
+        if (teamCode) resubscribeTeam(teamCode);
+      });
+    });
     useEffect(() => {
       applyTheme(darkMode);
       lsSet("waxlab:darkmode", darkMode);
@@ -7462,6 +7640,40 @@ Outcome: Eliminated`;
       const h = getHashTeam();
       if (h) joinTeam(h);
     }, []);
+    function resubscribeTeam(code) {
+      if (!db || !code) return;
+      if (unsubscribeRef.current) {
+        try {
+          unsubscribeRef.current();
+        } catch (e) {
+        }
+      }
+      bgSyncEvents(code, (evs) => {
+        setEvents(evs);
+        setAllEventsGlobal(evs);
+      });
+      bgSyncVocab((v) => setVocab(v));
+      const unsub = subscribeToTeam(
+        code,
+        (change) => {
+          if (change.type === "delete") setEvents((p) => p.filter((e) => e.id !== change.id));
+          else {
+            if (pendingWrites.current.has(change.event?.id)) return;
+            const deletedIds = lsGet(`waxlab:deleted:${code}`) || [];
+            if (deletedIds.includes(change.event?.id)) return;
+            setEvents((p) => {
+              const incoming = change.event;
+              const existing = p.find((e) => e.id === incoming?.id);
+              if (!existing) return [...p, incoming];
+              return p.map((e) => e.id === incoming.id ? mergeEventSessions(existing, incoming) : e);
+            });
+          }
+        },
+        (cat, terms) => setVocab((p) => ({ ...p, [cat]: terms })),
+        (updatedFleets) => setFleets(updatedFleets)
+      );
+      unsubscribeRef.current = unsub;
+    }
     async function joinTeam(code) {
       setLoading(true);
       setTeamCode(code);
@@ -7481,18 +7693,34 @@ Outcome: Eliminated`;
         setAllEventsGlobal(evs2);
       });
       bgSyncVocab((v) => setVocab(v));
-      return subscribeToTeam(
+      if (unsubscribeRef.current) {
+        try {
+          unsubscribeRef.current();
+        } catch (e) {
+        }
+      }
+      const unsub = subscribeToTeam(
         code,
         (change) => {
           if (change.type === "delete") setEvents((p) => p.filter((e) => e.id !== change.id));
           else {
             if (pendingWrites.current.has(change.event?.id)) return;
-            setEvents((p) => p.find((e) => e.id === change.event?.id) ? p.map((e) => e.id === change.event.id ? change.event : e) : [...p, change.event]);
+            const deletedIds = lsGet(`waxlab:deleted:${code}`) || [];
+            if (deletedIds.includes(change.event?.id)) return;
+            setEvents((p) => {
+              const incoming = change.event;
+              const existing = p.find((e) => e.id === incoming?.id);
+              if (!existing) return [...p, incoming];
+              const merged = mergeEventSessions(existing, incoming);
+              return p.map((e) => e.id === incoming.id ? merged : e);
+            });
           }
         },
         (cat, terms) => setVocab((p) => ({ ...p, [cat]: terms })),
         (updatedFleets) => setFleets(updatedFleets)
       );
+      unsubscribeRef.current = unsub;
+      return unsub;
     }
     function leaveTeam() {
       window.location.hash = "";
@@ -7500,6 +7728,7 @@ Outcome: Eliminated`;
     }
     const persistTimers = useRef({});
     const pendingWrites = useRef(/* @__PURE__ */ new Set());
+    const unsubscribeRef = useRef(null);
     const persist = useCallback((event) => {
       setEvents((p) => p.find((e) => e.id === event.id) ? p.map((e) => e.id === event.id ? event : e) : [...p, event]);
       saveEvent(teamCode, event);
@@ -7574,6 +7803,11 @@ Outcome: Eliminated`;
       await persist(ev);
     }
     async function doDeleteEvent(id) {
+      if (persistTimers.current[id] != null) {
+        clearTimeout(persistTimers.current[id]);
+        delete persistTimers.current[id];
+      }
+      pendingWrites.current.delete(id);
       await deleteEventDB(teamCode, id);
       setEvents((p) => p.filter((e) => e.id !== id));
       setView("home");
