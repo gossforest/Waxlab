@@ -5139,6 +5139,215 @@ Outcome: Eliminated`;
       elimSoFar: new Set(elimSoFar)
     };
   }
+  function TournamentSkiRow({
+    ski,
+    status,
+    dim = false,
+    isBlind,
+    isGlide,
+    getComp: getComp2,
+    max: max2,
+    currentPair,
+    winner,
+    roundState,
+    rewaxId,
+    rewaxProduct,
+    rewaxApp,
+    rewaxForm,
+    vocab,
+    test,
+    setCurrentPair,
+    updateRating,
+    restore,
+    startRewax,
+    confirmRewax,
+    setRewaxProduct,
+    setRewaxApp,
+    setRewaxForm,
+    setRewaxId,
+    lookupProductForm: lookupProductForm2,
+    onVocabAdd,
+    lastRoundFor
+  }) {
+    const [open, setOpen] = useState(false);
+    const comp = getComp2(ski);
+    const hist = lastRoundFor(ski.id);
+    const isElim = ski.standing === "Eliminated";
+    const isTied = ski.standing === "Tied";
+    const inPair = (currentPair || []).includes(ski.id);
+    const rs = roundState;
+    const badge = status === "tested" ? { label: `R${rs?.currentRound} \u2713`, bg: "rgba(52,199,89,0.12)", color: "var(--green)" } : status === "active" ? { label: `R${rs?.currentRound}`, bg: "rgba(0,122,255,0.08)", color: "var(--blue)" } : status === "elim" ? { label: `Out R${hist?.round ?? "?"}`, bg: "rgba(255,59,48,0.08)", color: "var(--red)" } : status === "tied" ? { label: "Tied", bg: "rgba(255,159,10,0.1)", color: "var(--amber)" } : null;
+    const cardBorder = inPair ? "2px solid var(--blue)" : status === "tested" ? "1.5px solid var(--green)" : "1.5px solid var(--rule)";
+    const cardBg = isElim || isTied ? "var(--paper-2)" : "var(--paper)";
+    return /* @__PURE__ */ React.createElement("div", { style: {
+      marginBottom: 6,
+      border: cardBorder,
+      borderRadius: 10,
+      background: cardBg,
+      opacity: dim ? 0.6 : 1,
+      overflow: "hidden"
+    } }, /* @__PURE__ */ React.createElement("div", { style: {
+      padding: "10px 12px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 8
+    } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 15, fontWeight: 800 } }, ski.id), badge && /* @__PURE__ */ React.createElement("span", { style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: "0.06em",
+      padding: "2px 7px",
+      borderRadius: 4,
+      background: badge.bg,
+      color: badge.color
+    } }, badge.label), !isBlind && ski.waxForm && /* @__PURE__ */ React.createElement(WaxFormBadge, { form: ski.waxForm })), !isBlind && ski.product && /* @__PURE__ */ React.createElement("div", { style: {
+      fontSize: 12,
+      color: "var(--ink-mid)",
+      marginTop: 2,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    } }, ski.product), !isBlind && ski.feelNotes && /* @__PURE__ */ React.createElement("div", { style: {
+      fontSize: 11,
+      color: "var(--ink-faint)",
+      marginTop: 2,
+      fontStyle: "italic",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    } }, '"', ski.feelNotes, '"')), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 } }, comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max: max2 }), (status === "active" || status === "tested") && !winner && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: () => setCurrentPair((prev) => {
+          const ids = (prev || []).filter(Boolean);
+          if (ids.includes(ski.id)) {
+            const n = ids.filter((x) => x !== ski.id);
+            return n.length ? n : null;
+          }
+          return ids.length >= 2 ? [ids[1], ski.id] : [...ids, ski.id];
+        }),
+        style: {
+          padding: "5px 10px",
+          borderRadius: 6,
+          fontSize: 12,
+          fontWeight: 700,
+          minHeight: 34,
+          cursor: "pointer",
+          border: "none",
+          background: inPair ? "var(--blue)" : "var(--paper-3)",
+          color: inPair ? "#fff" : "var(--ink)"
+        }
+      },
+      inPair ? "Selected" : "Select"
+    ), (isElim || isTied) && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        style: { fontSize: 12, padding: "5px 10px", minHeight: 34 },
+        onClick: () => setOpen((o) => !o)
+      },
+      open ? "Close \u25B2" : "Options \u25BC"
+    ), !isElim && !isTied && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        style: { fontSize: 12, padding: "5px 10px", minHeight: 34 },
+        onClick: () => setOpen((o) => !o)
+      },
+      open ? "Hide" : "Rate"
+    ))), open && !isElim && !isTied && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 12px 12px", borderTop: "1px solid var(--rule)" } }, !isGlide && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", width: 64, flexShrink: 0 } }, "KICK 1\u201310"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "range",
+        min: 1,
+        max: 10,
+        value: ski.ratings?.kick ?? 5,
+        onChange: (e) => updateRating(ski.id, { ...ski.ratings || {}, kick: Number(e.target.value) }),
+        style: { flex: 1 }
+      }
+    ), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+      fontSize: 17,
+      fontWeight: 700,
+      width: 28,
+      textAlign: "right",
+      color: ski.ratings?.kick != null ? compositeColor(ski.ratings.kick, 10) : "var(--ink-faint)"
+    } }, ski.ratings?.kick ?? "-")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: !isGlide ? 0 : 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", width: 64, flexShrink: 0 } }, "GLIDE 1\u201310"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "range",
+        min: 1,
+        max: 10,
+        value: ski.ratings?.glide ?? 5,
+        onChange: (e) => updateRating(ski.id, { ...ski.ratings || {}, glide: Number(e.target.value) }),
+        style: { flex: 1 }
+      }
+    ), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+      fontSize: 17,
+      fontWeight: 700,
+      width: 28,
+      textAlign: "right",
+      color: ski.ratings?.glide != null ? compositeColor(ski.ratings.glide, 10) : "var(--ink-faint)"
+    } }, ski.ratings?.glide ?? "-")), comp != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8 }, className: "mono" }, "Composite: ", /* @__PURE__ */ React.createElement("span", { style: { color: compositeColor(comp, max2), fontWeight: 700 } }, comp, "/", max2)), /* @__PURE__ */ React.createElement(
+      TA,
+      {
+        label: "",
+        value: ski.feelNotes || "",
+        rows: 2,
+        mic: true,
+        placeholder: "Feel notes\u2026",
+        style: { marginBottom: 0 },
+        onChange: (v) => updateRating(ski.id, ski.ratings || {}, { feelNotes: v })
+      }
+    )), open && (isElim || isTied) && rewaxId !== ski.id && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid var(--rule)", padding: "10px 12px", display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        style: { flex: 1, fontSize: 13, minHeight: 40 },
+        onClick: () => {
+          restore(ski.id);
+          setOpen(false);
+        }
+      },
+      "\u21A9 Restore (same wax)"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn",
+        style: { flex: 1, fontSize: 13, minHeight: 40, background: "var(--blue)" },
+        onClick: () => startRewax(ski)
+      },
+      "\u21BA Re-wax & re-enter"
+    )), rewaxId === ski.id && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid var(--rule)", padding: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--blue)", marginBottom: 10 } }, "Re-wax ", ski.id), /* @__PURE__ */ React.createElement(
+      ACI,
+      {
+        label: "New Product",
+        value: rewaxProduct,
+        onChange: (v) => {
+          setRewaxProduct(v);
+          const f = lookupProductForm2(v);
+          if (f) setRewaxForm(f);
+        },
+        onCommit: (v) => onVocabAdd?.("products", [v]),
+        suggestions: vocab?.products || [],
+        placeholder: "New wax product\u2026",
+        style: { marginBottom: 6 }
+      }
+    ), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 4 } }, "Form"), /* @__PURE__ */ React.createElement(WaxFormPicker, { category: test.category, value: rewaxForm, onChange: setRewaxForm })), /* @__PURE__ */ React.createElement(
+      ACI,
+      {
+        label: "Application",
+        value: rewaxApp,
+        onChange: setRewaxApp,
+        onCommit: (v) => onVocabAdd?.("applications", [v]),
+        suggestions: vocab?.applications || [],
+        placeholder: "Iron temp, layers\u2026",
+        style: { marginBottom: 10 }
+      }
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", style: { flex: 2 }, onClick: () => {
+      confirmRewax();
+      setOpen(false);
+    } }, "Re-enter ", ski.id), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", style: { flex: 1 }, onClick: () => setRewaxId(null) }, "Cancel"))));
+  }
   function TestView({ test, onUpdate, onBack, vocab, onVocabAdd, useCelsius, onUnitToggle, teamCode, eventId, fleets = [] }) {
     const [tab, setTab] = useState(test.category === "glide-out" || test.type === "Glide Out" ? "glideout" : "tournament");
     const [undoStack, setUndoStack] = useState([]);
@@ -5266,24 +5475,22 @@ Outcome: Eliminated`;
       pushUndo(snap, "Winner declared");
     }
     function markRunnerUp(skiId) {
+      if (!currentPair) return;
       const snap = [...test.skis || []];
-      const opponentId = currentPair ? currentPair.find((id) => id !== skiId) : null;
+      const opponentId = currentPair.find((id) => id !== skiId);
+      if (!opponentId) return;
       const rs = computeRoundState(test.rounds || [], test.skis || []);
       const roundNum = rs.currentRound;
       const newRound = {
         roundNum,
-        skiA: opponentId || null,
+        skiA: opponentId,
         skiB: skiId,
-        winner: opponentId || null,
+        winner: opponentId,
         loser: skiId,
         runnerUp: true
       };
-      upd({
-        skis: (test.skis || []).map((s) => s),
-        // no standing change — ski stays Active
-        rounds: [...test.rounds || [], newRound]
-      });
-      pushUndo(snap, "2nd place recorded");
+      upd({ rounds: [...test.rounds || [], newRound] });
+      pushUndo(snap, `${skiId} placed 2nd`);
     }
     function declareTie() {
       if (activeSki.length !== 2) return;
@@ -5759,197 +5966,33 @@ Outcome: Eliminated`;
         }
         return null;
       };
-      function SkiRow({ ski, status, dim }) {
-        const [open, setOpen] = React.useState(false);
-        const comp = getComp2(ski);
-        const hist = lastRoundFor(ski.id);
-        const isElim = ski.standing === "Eliminated";
-        const isTied = ski.standing === "Tied";
-        const inPair = (currentPair || []).includes(ski.id);
-        const badge = status === "tested" ? { label: `R${rs?.currentRound} \u2713`, bg: "rgba(52,199,89,0.12)", color: "var(--green)" } : status === "active" ? { label: `R${rs?.currentRound}`, bg: "rgba(0,122,255,0.08)", color: "var(--blue)" } : status === "elim" ? { label: `Out R${hist?.round ?? "?"}`, bg: "rgba(255,59,48,0.08)", color: "var(--red)" } : status === "tied" ? { label: "Tied", bg: "rgba(255,159,10,0.1)", color: "var(--amber)" } : null;
-        const cardBorder = inPair ? "2px solid var(--blue)" : status === "tested" ? "1.5px solid var(--green)" : isElim ? "1.5px solid var(--rule)" : "1.5px solid var(--rule)";
-        const cardBg = isElim || isTied ? "var(--paper-2)" : "var(--paper)";
-        return /* @__PURE__ */ React.createElement("div", { style: {
-          marginBottom: 6,
-          border: cardBorder,
-          borderRadius: 10,
-          background: cardBg,
-          opacity: dim ? 0.6 : 1,
-          overflow: "hidden"
-        } }, /* @__PURE__ */ React.createElement("div", { style: {
-          padding: "10px 12px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 8
-        } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 15, fontWeight: 800 } }, ski.id), badge && /* @__PURE__ */ React.createElement("span", { style: {
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          padding: "2px 7px",
-          borderRadius: 4,
-          background: badge.bg,
-          color: badge.color
-        } }, badge.label), !isBlind && ski.waxForm && /* @__PURE__ */ React.createElement(WaxFormBadge, { form: ski.waxForm })), !isBlind && ski.product && /* @__PURE__ */ React.createElement("div", { style: {
-          fontSize: 12,
-          color: "var(--ink-mid)",
-          marginTop: 2,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        } }, ski.product), !isBlind && ski.feelNotes && /* @__PURE__ */ React.createElement("div", { style: {
-          fontSize: 11,
-          color: "var(--ink-faint)",
-          marginTop: 2,
-          fontStyle: "italic",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        } }, '"', ski.feelNotes, '"')), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 } }, comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max: max2 }), (status === "active" || status === "tested") && !winner && /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            onClick: () => setCurrentPair((prev) => {
-              const ids = (prev || []).filter(Boolean);
-              if (ids.includes(ski.id)) {
-                const n = ids.filter((x) => x !== ski.id);
-                return n.length ? n : null;
-              }
-              return ids.length >= 2 ? [ids[1], ski.id] : [...ids, ski.id];
-            }),
-            style: {
-              padding: "5px 10px",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 700,
-              minHeight: 34,
-              cursor: "pointer",
-              border: "none",
-              background: inPair ? "var(--blue)" : "var(--paper-3)",
-              color: inPair ? "#fff" : "var(--ink)"
-            }
-          },
-          inPair ? "Selected" : "Select"
-        ), (isElim || isTied) && /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            className: "btn-ghost",
-            style: { fontSize: 12, padding: "5px 10px", minHeight: 34 },
-            onClick: () => setOpen((o) => !o)
-          },
-          open ? "Close \u25B2" : "Options \u25BC"
-        ), !isElim && !isTied && /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            className: "btn-ghost",
-            style: { fontSize: 12, padding: "5px 10px", minHeight: 34 },
-            onClick: () => setOpen((o) => !o)
-          },
-          open ? "Hide" : "Rate"
-        ))), open && !isElim && !isTied && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 12px 12px", borderTop: "1px solid var(--rule)" } }, !isGlide && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", width: 64, flexShrink: 0 } }, "KICK 1\u201310"), /* @__PURE__ */ React.createElement(
-          "input",
-          {
-            type: "range",
-            min: 1,
-            max: 10,
-            value: ski.ratings?.kick ?? 5,
-            onChange: (e) => updateRating(ski.id, { ...ski.ratings || {}, kick: Number(e.target.value) }),
-            style: { flex: 1 }
-          }
-        ), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-          fontSize: 17,
-          fontWeight: 700,
-          width: 28,
-          textAlign: "right",
-          color: ski.ratings?.kick != null ? compositeColor(ski.ratings.kick, 10) : "var(--ink-faint)"
-        } }, ski.ratings?.kick ?? "-")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: !isGlide ? 0 : 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", width: 64, flexShrink: 0 } }, "GLIDE 1\u201310"), /* @__PURE__ */ React.createElement(
-          "input",
-          {
-            type: "range",
-            min: 1,
-            max: 10,
-            value: ski.ratings?.glide ?? 5,
-            onChange: (e) => updateRating(ski.id, { ...ski.ratings || {}, glide: Number(e.target.value) }),
-            style: { flex: 1 }
-          }
-        ), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-          fontSize: 17,
-          fontWeight: 700,
-          width: 28,
-          textAlign: "right",
-          color: ski.ratings?.glide != null ? compositeColor(ski.ratings.glide, 10) : "var(--ink-faint)"
-        } }, ski.ratings?.glide ?? "-")), comp != null && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8 }, className: "mono" }, "Composite: ", /* @__PURE__ */ React.createElement("span", { style: { color: compositeColor(comp, max2), fontWeight: 700 } }, comp, "/", max2)), /* @__PURE__ */ React.createElement(
-          TA,
-          {
-            label: "",
-            value: ski.feelNotes || "",
-            rows: 2,
-            mic: true,
-            placeholder: "Feel notes\u2026",
-            style: { marginBottom: 0 },
-            onChange: (v) => updateRating(ski.id, ski.ratings || {}, { feelNotes: v })
-          }
-        )), open && (isElim || isTied) && rewaxId !== ski.id && /* @__PURE__ */ React.createElement("div", { style: {
-          borderTop: "1px solid var(--rule)",
-          padding: "10px 12px",
-          display: "flex",
-          gap: 8
-        } }, /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            className: "btn-ghost",
-            style: { flex: 1, fontSize: 13, minHeight: 40 },
-            onClick: () => {
-              restore(ski.id);
-              setOpen(false);
-            }
-          },
-          "\u21A9 Restore (same wax)"
-        ), /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            className: "btn",
-            style: {
-              flex: 1,
-              fontSize: 13,
-              minHeight: 40,
-              background: "var(--blue)"
-            },
-            onClick: () => startRewax(ski)
-          },
-          "\u21BA Re-wax & re-enter"
-        )), rewaxId === ski.id && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid var(--rule)", padding: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--blue)", marginBottom: 10 } }, "Re-wax ", ski.id), /* @__PURE__ */ React.createElement(
-          ACI,
-          {
-            label: "New Product",
-            value: rewaxProduct,
-            onChange: (v) => {
-              setRewaxProduct(v);
-              const f = lookupProductForm(v);
-              if (f) setRewaxForm(f);
-            },
-            onCommit: (v) => onVocabAdd?.("products", [v]),
-            suggestions: vocab?.products || [],
-            placeholder: "New wax product\u2026",
-            style: { marginBottom: 6 }
-          }
-        ), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 4 } }, "Form"), /* @__PURE__ */ React.createElement(WaxFormPicker, { category: test.category, value: rewaxForm, onChange: setRewaxForm })), /* @__PURE__ */ React.createElement(
-          ACI,
-          {
-            label: "Application",
-            value: rewaxApp,
-            onChange: setRewaxApp,
-            onCommit: (v) => onVocabAdd?.("applications", [v]),
-            suggestions: vocab?.applications || [],
-            placeholder: "Iron temp, layers\u2026",
-            style: { marginBottom: 10 }
-          }
-        ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", style: { flex: 2 }, onClick: () => {
-          confirmRewax();
-          setOpen(false);
-        } }, "Re-enter ", ski.id), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", style: { flex: 1 }, onClick: () => {
-          setRewaxId(null);
-        } }, "Cancel"))));
-      }
+      const rowProps = {
+        isBlind,
+        isGlide,
+        getComp: getComp2,
+        max: max2,
+        currentPair,
+        winner,
+        roundState: rs,
+        rewaxId,
+        rewaxProduct,
+        rewaxApp,
+        rewaxForm,
+        vocab,
+        test,
+        setCurrentPair,
+        updateRating,
+        restore,
+        startRewax,
+        confirmRewax,
+        setRewaxProduct,
+        setRewaxApp,
+        setRewaxForm,
+        setRewaxId,
+        lookupProductForm,
+        onVocabAdd,
+        lastRoundFor
+      };
       return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: {
         display: "flex",
         justifyContent: "space-between",
@@ -5974,28 +6017,28 @@ Outcome: Eliminated`;
           onClick: () => setCurrentPair(null)
         },
         "Clear"
-      ))), activeUntested.map((ski) => /* @__PURE__ */ React.createElement(SkiRow, { key: ski.id, ski, status: "active" })), activeTested.length > 0 && activeUntested.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+      ))), activeUntested.map((ski) => /* @__PURE__ */ React.createElement(TournamentSkiRow, { key: ski.id, ski, status: "active", ...rowProps })), activeTested.length > 0 && activeUntested.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
         fontSize: 10,
         fontWeight: 700,
         color: "var(--ink-faint)",
         letterSpacing: "0.08em",
         textTransform: "uppercase",
         padding: "6px 2px 4px"
-      } }, "Tested this round"), activeTested.map((ski) => /* @__PURE__ */ React.createElement(SkiRow, { key: ski.id, ski, status: "tested" })), elimSkis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+      } }, "Tested this round"), activeTested.map((ski) => /* @__PURE__ */ React.createElement(TournamentSkiRow, { key: ski.id, ski, status: "tested", ...rowProps })), elimSkis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
         fontSize: 10,
         fontWeight: 700,
         color: "var(--ink-faint)",
         letterSpacing: "0.08em",
         textTransform: "uppercase",
         padding: "10px 2px 4px"
-      } }, "Eliminated (", elimSkis.length, ")"), elimSkis.map((ski) => /* @__PURE__ */ React.createElement(SkiRow, { key: ski.id, ski, status: "elim", dim: true })), tiedSkis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+      } }, "Eliminated (", elimSkis.length, ")"), elimSkis.map((ski) => /* @__PURE__ */ React.createElement(TournamentSkiRow, { key: ski.id, ski, status: "elim", dim: true, ...rowProps })), tiedSkis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
         fontSize: 10,
         fontWeight: 700,
         color: "var(--amber)",
         letterSpacing: "0.08em",
         textTransform: "uppercase",
         padding: "10px 2px 4px"
-      } }, "Tied (", tiedSkis.length, ")"), tiedSkis.map((ski) => /* @__PURE__ */ React.createElement(SkiRow, { key: ski.id, ski, status: "tied", dim: false })));
+      } }, "Tied (", tiedSkis.length, ")"), tiedSkis.map((ski) => /* @__PURE__ */ React.createElement(TournamentSkiRow, { key: ski.id, ski, status: "tied", dim: false, ...rowProps })));
     })(), !winner && (() => {
       const rs = roundState;
       const show = activeSki.length === 1 || rs?.roundComplete && activeSki.length >= 2;
