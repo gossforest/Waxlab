@@ -2906,7 +2906,7 @@ Outcome: Eliminated`;
       textAlign: "center",
       marginTop: 6,
       lineHeight: 1.7
-    } }, /* @__PURE__ */ React.createElement("div", null, '"Advance A1" \xB7 "Eliminate B2" \xB7 "Winner C1"'), /* @__PURE__ */ React.createElement("div", null, '"Pair A1 B2" \xB7 "Runner up A1" \xB7 "Second B2"'), /* @__PURE__ */ React.createElement("div", null, '"Rate A1 glide 8 kick 4" \xB7 "A1 glide seven"'), /* @__PURE__ */ React.createElement("div", null, '"Snow temp 28" \xB7 "Air temp negative 3"'), /* @__PURE__ */ React.createElement("div", null, '"Note A1 felt slow in the tracks"'), /* @__PURE__ */ React.createElement("div", null, '"Block A1" \xB7 "Klister B2" \xB7 "Liquid C1" \xB7 "Hard A2"'), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, color: "var(--rule)" } }, "keep/drop/pass \xB7 compare \xB7 versus \xB7 ay-one")));
+    } }, /* @__PURE__ */ React.createElement("div", null, '"Advance A1" \xB7 "Eliminate B2" \xB7 "Winner C1"'), /* @__PURE__ */ React.createElement("div", null, '"Pair A1 B2" \xB7 "Advance A1" \xB7 "Eliminate B2"'), /* @__PURE__ */ React.createElement("div", null, '"Rate A1 glide 8 kick 4" \xB7 "A1 glide seven"'), /* @__PURE__ */ React.createElement("div", null, '"Snow temp 28" \xB7 "Air temp negative 3"'), /* @__PURE__ */ React.createElement("div", null, '"Note A1 felt slow in the tracks"'), /* @__PURE__ */ React.createElement("div", null, '"Block A1" \xB7 "Klister B2" \xB7 "Liquid C1" \xB7 "Hard A2"'), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 3, color: "var(--rule)" } }, "keep/drop/pass \xB7 compare \xB7 versus \xB7 ay-one")));
   }
   function FleetSkiRow({ ski, onChange, onDelete }) {
     return /* @__PURE__ */ React.createElement("div", { style: {
@@ -6190,9 +6190,16 @@ Outcome: Eliminated`;
       if (pendingResult && pendingResult.skiId === opponentId) {
         const oRes = pendingResult.result;
         if (oRes === "adv") {
-          commitPairResult(skiId, opponentId, "2nd");
-        } else if (oRes === "elim" || oRes === "2nd") {
-          commitPairResult(skiId, opponentId, oRes);
+          const snap = { skis: [...test.skis || []], rounds: [...test.rounds || []] };
+          const rs = computeRoundState(test.rounds || [], test.skis || []);
+          upd({
+            skis: (test.skis || []).map((s) => s.id === skiId || s.id === opponentId ? { ...s, standing: "Active" } : s),
+            rounds: [...test.rounds || [], { roundNum: rs.currentRound, skiA: opponentId, skiB: skiId, winner: null, loser: null, tie: true }]
+          });
+          pushUndo(snap, "Both advanced \u2014 both continue");
+          setPendingResult(null);
+        } else {
+          commitPairResult(skiId, opponentId, "elim");
         }
       } else {
         setPendingResult({ skiId, result: "adv" });
@@ -6206,15 +6213,12 @@ Outcome: Eliminated`;
         const oRes = pendingResult.result;
         if (oRes === "adv") {
           commitPairResult(opponentId, skiId, "elim");
-        } else if (oRes === "2nd") {
-          commitPairResult(opponentId, skiId, "elim");
         } else if (oRes === "elim") {
-          const snap = [...test.skis || []];
+          const snap = { skis: [...test.skis || []], rounds: [...test.rounds || []] };
           const rs = computeRoundState(test.rounds || [], test.skis || []);
-          const roundNum = rs.currentRound;
           upd({
             skis: (test.skis || []).map((s) => s.id === skiId || s.id === opponentId ? { ...s, standing: "Tied" } : s),
-            rounds: [...test.rounds || [], { roundNum, skiA: opponentId, skiB: skiId, winner: null, loser: null, tie: true }]
+            rounds: [...test.rounds || [], { roundNum: rs.currentRound, skiA: opponentId, skiB: skiId, winner: null, loser: null, tie: true }]
           });
           pushUndo(snap, "Both eliminated \u2014 recorded as tie");
           setPendingResult(null);
