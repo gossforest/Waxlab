@@ -845,7 +845,7 @@ var AppBundle = (() => {
       onSave(next);
       setConfirmDelete(null);
     }
-    const SNOW_OPTIONS = ["Dry powder", "Cold packed", "Transformed", "Wet", "Klister", "Variable"];
+    const SNOW_OPTIONS = ["New snow", "Dry powder", "Cold packed", "Transformed", "Wet", "Manmade", "Variable"];
     function toggleSnowType(type) {
       const cur = draft.snowTypes || [];
       setDraft((d) => ({ ...d, snowTypes: cur.includes(type) ? cur.filter((t) => t !== type) : [...cur, type] }));
@@ -2583,6 +2583,8 @@ Outcome: Eliminated`;
   }
   function normaliseTranscript(transcript) {
     let t = transcript.toLowerCase().trim();
+    t = t.replace(/([a-z])[\.\-_](\d)/g, "$1 $2");
+    t = t.replace(/(\d)[\.\-_]([a-z])/g, "$1 $2");
     const numWords = {
       zero: 0,
       one: 1,
@@ -2594,60 +2596,116 @@ Outcome: Eliminated`;
       seven: 7,
       eight: 8,
       nine: 9,
-      ten: 10
+      ten: 10,
+      eleven: 11,
+      twelve: 12,
+      thirteen: 13,
+      fourteen: 14,
+      for: 4,
+      too: 2,
+      won: 1,
+      ate: 8
     };
     t = t.replace(
-      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten)\b/g,
-      (m) => numWords[m]
+      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|for|too|won|ate)\b/g,
+      (m) => numWords[m] !== void 0 ? numWords[m] : m
     );
     const phoneticLetters = [
       [/\bdouble\s*you\b/g, "w"],
+      [/\baitch\b/g, "h"],
+      // before "ay" to avoid partial match
       [/\baye?\b/g, "a"],
       // "ay" or "a"
+      [/\bbravo\b/g, "b"],
       [/\bbee?\b/g, "b"],
-      // "bee" or "be"
+      [/\bcharlie\b/g, "c"],
       [/\bsee\b/g, "c"],
       [/\bsea\b/g, "c"],
+      [/\bdelta\b/g, "d"],
       [/\bdee?\b/g, "d"],
+      [/\becho\b/g, "e"],
+      [/\bfoxtrot\b/g, "f"],
       [/\beff\b/g, "f"],
+      [/\bgolf\b/g, "g"],
       [/\bjee\b/g, "g"],
-      [/\baitch\b/g, "h"],
+      [/\bhotel\b/g, "h"],
+      [/\bindia\b/g, "i"],
       [/\beye\b/g, "i"],
+      [/\bjuliett?\b/g, "j"],
       [/\bjay\b/g, "j"],
+      [/\bkilo\b/g, "k"],
       [/\bkay\b/g, "k"],
+      [/\blima\b/g, "l"],
       [/\bell\b/g, "l"],
+      [/\bmike\b/g, "m"],
       [/\bem\b/g, "m"],
+      [/\bnovember\b/g, "n"],
       [/\ben\b/g, "n"],
+      [/\boscar\b/g, "o"],
       [/\boh\b/g, "o"],
+      [/\bpapa\b/g, "p"],
       [/\bpee\b/g, "p"],
+      [/\bquebec\b/g, "q"],
       [/\bcue\b/g, "q"],
+      [/\bromeo\b/g, "r"],
       [/\barr?\b/g, "r"],
+      [/\bsierra\b/g, "s"],
       [/\bess\b/g, "s"],
+      [/\btango\b/g, "t"],
       [/\btee\b/g, "t"],
+      [/\buniform\b/g, "u"],
       [/\byou\b/g, "u"],
+      [/\bvictor\b/g, "v"],
       [/\bvee\b/g, "v"],
+      [/\bwhiskey\b/g, "w"],
+      [/\bx.?ray\b/g, "x"],
       [/\bex\b/g, "x"],
+      [/\byankee\b/g, "y"],
       [/\bwhy\b/g, "y"],
+      [/\bzulu\b/g, "z"],
       [/\bzee\b/g, "z"]
     ];
     for (const [pat, rep] of phoneticLetters) t = t.replace(pat, rep);
-    t = t.replace(/\brunner\s+up\b/g, "runnerup");
-    t = t.replace(/\b(vs\.?|versus)\b/g, "versus");
-    t = t.replace(/\b(ski|the|is|to|and|or|number)\b/g, " ");
+    t = t.replace(/\brunner[\s\-]*up\b/g, "runnerup");
+    t = t.replace(/\b(vs\.?|versus|against|v\.)\b/g, "versus");
+    t = t.replace(/\b(pear|pare)\b/g, "pair");
+    t = t.replace(/\b(ski|skis|the|is|to|and|or|number|id|with|put|set|get)\b/g, " ");
     t = t.replace(/\s+/g, " ").trim();
-    t = t.replace(/\b([a-z]{1,2})\s+(\d{1,2})\b/g, "$1$2");
+    t = t.replace(/\b([a-z]{1,3})\s+(\d{1,2})\b/g, "$1$2");
+    t = t.replace(/\b([a-z]{1,3})\s+(\d{1,2})\b/g, "$1$2");
     return t;
   }
   function parseVoiceCommand(transcript, knownIds) {
     const norm = normaliseTranscript(transcript);
     const knownUpper = (knownIds || []).map((id) => id.toUpperCase());
+    function extractAllIds(str) {
+      const results = [];
+      const alphaMatches = [...str.matchAll(/(?<![a-z\d])([a-z]{1,3}\d{1,2})(?!\d)/gi)];
+      for (const m of alphaMatches) results.push(m[1].toUpperCase());
+      if (knownUpper.length > 0) {
+        const numMatches = [...str.matchAll(/\b(\d{1,2})\b/g)];
+        for (const m of numMatches) {
+          if (knownUpper.includes(m[1]) && !results.includes(m[1])) results.push(m[1]);
+        }
+      }
+      return [...new Set(results)];
+    }
     function extractId(str) {
-      const m = str.match(/\b([a-z]{1,2}\d{1,2})\b/i);
-      if (!m) return null;
-      const candidate = m[1].toUpperCase();
-      if (knownUpper.length > 0 && knownUpper.includes(candidate)) return candidate;
-      if (/^[A-Z]{1,2}\d{1,2}$/.test(candidate)) return candidate;
-      return null;
+      const all = extractAllIds(str);
+      if (!all.length) return null;
+      if (knownUpper.length > 0) {
+        const known = all.find((id) => knownUpper.includes(id));
+        if (known) return known;
+      }
+      return all[0];
+    }
+    function extractSecondId(str, firstId) {
+      const all = extractAllIds(str);
+      if (knownUpper.length > 0) {
+        const known = all.find((id) => id !== firstId && knownUpper.includes(id));
+        if (known) return known;
+      }
+      return all.find((id) => id !== firstId) || null;
     }
     function extractRating(str, keyword) {
       let m = str.match(new RegExp(keyword + "[\\s:]*?(\\d{1,2})\\b"));
@@ -2664,13 +2722,13 @@ Outcome: Eliminated`;
     }
     const actionMap = [
       { action: "advance", words: ["advance", "advanced", "next", "pass", "keep", "forward", "promote"] },
-      { action: "eliminate", words: ["eliminate", "eliminated", "out", "drop", "remove", "scratch", "discard"] },
-      { action: "winner", words: ["winner", "winners", "win", "wins", "first", "best", "choose", "select"] },
-      { action: "runnerup", words: ["runnerup", "runner", "second", "2nd", "silver", "place2"] },
-      { action: "pair", words: ["pair", "compare", "versus", "vs", "match", "test"] },
-      { action: "restore", words: ["restore", "back", "revive", "return", "undo"] },
-      { action: "rate", words: ["rate", "rated", "rating", "race", "score", "scored", "mark"] },
-      { action: "note", words: ["note", "notes", "comment", "observe", "observation"] },
+      { action: "eliminate", words: ["eliminate", "eliminated", "out", "drop", "remove", "scratch", "discard", "lose", "lost"] },
+      { action: "winner", words: ["winner", "winners", "win", "wins", "first", "best", "choose", "select", "champion"] },
+      { action: "runnerup", words: ["runnerup", "runner", "second", "2nd", "silver"] },
+      { action: "pair", words: ["pair", "compare", "versus", "match", "race"] },
+      { action: "restore", words: ["restore", "back", "revive", "return", "undo", "reenter"] },
+      { action: "rate", words: ["rate", "rated", "rating", "score", "scored", "mark", "give"] },
+      { action: "note", words: ["note", "notes", "comment", "observe", "observation", "log"] },
       { action: "form", words: ["form", "waxform", "type"] }
     ];
     let detectedAction = null;
@@ -2680,27 +2738,19 @@ Outcome: Eliminated`;
         break;
       }
     }
-    const skiId = extractId(norm);
-    function extractSecondId(str, firstId) {
-      const matches = [...str.matchAll(/\b([a-z]{1,2}\d{1,2})\b/gi)];
-      for (const m of matches) {
-        const candidate = m[1].toUpperCase();
-        if (candidate === firstId) continue;
-        if (knownUpper.length > 0 && knownUpper.includes(candidate)) return candidate;
-        if (/^[A-Z]{1,2}\d{1,2}$/.test(candidate)) return candidate;
-      }
-      return null;
-    }
-    if (detectedAction === "pair") {
-      const id2 = skiId ? extractSecondId(norm, skiId) : null;
-      if (skiId && id2) return { action: "pair", skiId, skiId2: id2 };
-      return null;
+    const allIds = extractAllIds(norm);
+    const skiId = allIds[0] || null;
+    const skiId2 = allIds.find((id) => id !== skiId) || null;
+    const hasPairKeyword = detectedAction === "pair" || /\bversus\b/.test(norm);
+    const impliedPair = !detectedAction && allIds.length >= 2;
+    if (hasPairKeyword || impliedPair) {
+      if (skiId && skiId2) return { action: "pair", skiId, skiId2 };
     }
     if (detectedAction === "runnerup") {
       if (skiId) return { action: "runnerup", skiId };
       return null;
     }
-    if (detectedAction && detectedAction !== "rate") {
+    if (detectedAction && !["rate", "note", "form", "pair"].includes(detectedAction)) {
       if (skiId) return { action: detectedAction, skiId };
       return null;
     }
@@ -2712,21 +2762,24 @@ Outcome: Eliminated`;
     if (detectedAction === "rate" && skiId) {
       return { action: "rate", skiId, glide, kick };
     }
-    const tempMatch = norm.match(/(snow|air).*?(-?\d+(?:\.\d+)?)/);
+    const negTempMatch = norm.match(/(snow|air).*?\b(minus|negative)\s+(\d+(?:\.\d+)?)/);
+    if (negTempMatch) {
+      return { action: "temp", kind: negTempMatch[1], val: -parseFloat(negTempMatch[3]) };
+    }
+    const tempMatch = norm.match(/(snow|air)[\w\s]*?(-?\d+(?:\.\d+)?)/);
     if (tempMatch) {
-      const kind = tempMatch[1];
       const val = parseFloat(tempMatch[2]);
-      if (!isNaN(val)) return { action: "temp", kind, val };
+      if (!isNaN(val)) return { action: "temp", kind: tempMatch[1], val };
     }
-    const noteMatch = norm.match(/note\s+([a-z]{1,2}\d{1,2})\s+(.*)/i);
-    if (noteMatch) {
-      return { action: "note", skiId: noteMatch[1].toUpperCase(), text: noteMatch[2].trim() };
+    if (detectedAction === "note" && skiId) {
+      const afterId = norm.replace(/.*?\b[a-z]{0,3}\d{1,2}\b/, "").trim();
+      const text = afterId || norm.replace(/\bnote\b/, "").replace(skiId.toLowerCase(), "").trim();
+      if (text) return { action: "note", skiId, text };
     }
-    const WAX_FORMS = ["block", "powder", "liquid", "hard", "klister"];
+    const WAX_FORMS = ["block", "powder", "liquid", "hard", "klister", "spray", "paste"];
     for (const form of WAX_FORMS) {
       if (new RegExp("\\b" + form + "\\b").test(norm)) {
-        const id = extractId(norm);
-        if (id) return { action: "form", skiId: id, form };
+        if (skiId) return { action: "form", skiId, form };
       }
     }
     return null;
