@@ -7633,6 +7633,7 @@ Outcome: Eliminated`;
   }
   function EventView({ event, onUpdate, onBack, onRequestDelete, vocab, onVocabAdd, allEvents, useCelsius, onUnitToggle, teamCode, fleets = [], activeSessionId, onSetActiveSession, activeTestId, onSetActiveTest }) {
     const [tab, setTab] = useState("sessions");
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const setActiveSessionId = onSetActiveSession || (() => {
     });
     function upd(patch) {
@@ -7679,10 +7680,33 @@ Outcome: Eliminated`;
       { id: "compare", label: "Compare" },
       { id: "export", label: "Export" }
     ];
-    return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", maxWidth: 200 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, event.name), event.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, event.location)), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", maxWidth: 200 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, event.name), event.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, event.location)), confirmDelete ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement(
       "button",
       {
-        onClick: () => onRequestDelete(event.id, event.name),
+        onClick: () => setConfirmDelete(false),
+        className: "btn-ghost",
+        style: { fontSize: 12, padding: "4px 10px", minHeight: 30 }
+      },
+      "Cancel"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: () => onRequestDelete(event.id),
+        className: "btn",
+        style: {
+          fontSize: 12,
+          padding: "4px 10px",
+          minHeight: 30,
+          background: "var(--red)",
+          borderColor: "var(--red)",
+          color: "#fff"
+        }
+      },
+      "Confirm"
+    )) : /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: () => setConfirmDelete(true),
         className: "btn-text",
         style: { color: "var(--red)", fontSize: 13 }
       },
@@ -8139,7 +8163,6 @@ Outcome: Eliminated`;
     const [catalog, setCatalog] = useState([]);
     const [view, setView] = useState("home");
     const [activeId, setActiveId] = useState(null);
-    const [pendingEventDelete, setPendingEventDelete] = useState(null);
     const [activeSessionId, setActiveSessionId] = useState(null);
     const [activeTestId, setActiveTestId] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -8359,19 +8382,21 @@ Outcome: Eliminated`;
     async function updateEvent(ev) {
       await persist(ev);
     }
-    async function doDeleteEvent(id) {
-      const tombstones = lsGet(`waxlab:deleted:${teamCode}`) || [];
-      if (!tombstones.includes(id)) lsSet(`waxlab:deleted:${teamCode}`, [...tombstones, id]);
+    function doDeleteEvent(id) {
       if (persistTimers.current[id] != null) {
         clearTimeout(persistTimers.current[id]);
         delete persistTimers.current[id];
       }
       pendingWrites.current.delete(id);
-      const ex = lsGet(`waxlab:events:${teamCode}`) || [];
-      lsSet(`waxlab:events:${teamCode}`, ex.filter((e) => e.id !== id));
+      const tombstones = lsGet(`waxlab:deleted:${teamCode}`) || [];
+      if (!tombstones.includes(id)) {
+        lsSet(`waxlab:deleted:${teamCode}`, [...tombstones, id]);
+      }
+      const stored = lsGet(`waxlab:events:${teamCode}`) || [];
+      lsSet(`waxlab:events:${teamCode}`, stored.filter((e) => e.id !== id));
       setView("home");
       setActiveId(null);
-      setEvents((p) => p.filter((e) => e.id !== id));
+      setEvents((prev) => prev.filter((e) => e.id !== id));
       if (db) {
         db.from("waxlab_events").delete().eq("id", id).then(({ error }) => {
           if (error) queueDelete(teamCode, id);
@@ -8432,7 +8457,7 @@ Outcome: Eliminated`;
       return /* @__PURE__ */ React.createElement("div", null, showOnboard && /* @__PURE__ */ React.createElement(OnboardingOverlay, { onDone: () => setShowOnboard(false) }), !online && /* @__PURE__ */ React.createElement("div", { className: "offline-bar" }, "\u26A0 Offline \u2014 changes saved locally"), bar, content);
     }
     if (view === "event" && activeEvent)
-      return wrap(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+      return wrap(/* @__PURE__ */ React.createElement(
         EventView,
         {
           event: activeEvent,
@@ -8446,7 +8471,7 @@ Outcome: Eliminated`;
           onSetActiveSession: setActiveSessionId,
           activeTestId,
           onSetActiveTest: setActiveTestId,
-          onRequestDelete: (id, name) => setPendingEventDelete({ id, name }),
+          onRequestDelete: (id) => doDeleteEvent(id),
           vocab,
           onVocabAdd: addVocab,
           allEvents: allEventsForPrediction,
@@ -8455,18 +8480,7 @@ Outcome: Eliminated`;
           teamCode,
           fleets
         }
-      ), pendingEventDelete && /* @__PURE__ */ React.createElement(
-        DeleteToast,
-        {
-          label: pendingEventDelete.name,
-          onUndo: () => setPendingEventDelete(null),
-          onCommit: () => {
-            const id = pendingEventDelete.id;
-            setPendingEventDelete(null);
-            doDeleteEvent(id);
-          }
-        }
-      )));
+      ));
     if (view === "fleets")
       return wrap(/* @__PURE__ */ React.createElement(
         FleetRegistryView,
