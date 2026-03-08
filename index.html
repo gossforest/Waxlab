@@ -3475,29 +3475,48 @@ Outcome: Eliminated`;
       {
         className: "btn",
         style: { width: "100%", marginTop: 8, fontSize: 13 },
-        onClick: () => onUpdate({
-          ...test,
-          skis: (test.skis || []).map((s) => ({
-            ...s,
-            standing: s.id === results[0].skiId ? "Winner" : "Eliminated"
-          }))
-        })
+        onClick: () => {
+          const lastSnow = (test.snowTemps || []).slice(-1)[0]?.tempF ?? null;
+          const lastAir = (test.airTemps || []).slice(-1)[0]?.tempF ?? null;
+          const completedConditions = lastSnow != null || lastAir != null ? {
+            ...lastSnow != null ? { snowTempF: lastSnow } : {},
+            ...lastAir != null ? { airTempF: lastAir } : {}
+          } : null;
+          onUpdate({
+            ...test,
+            completedAt: nowStr(),
+            ...completedConditions ? { completedConditions } : {},
+            skis: (test.skis || []).map((s) => ({
+              ...s,
+              standing: s.id === results[0].skiId ? "Winner" : "Eliminated"
+            }))
+          });
+        }
       },
       "Declare ",
       results[0].skiId,
       " Winner"
-    )), !hasWinner && /* @__PURE__ */ React.createElement("div", { style: {
+    )), !hasWinner && completedCount > 0 && completedCount >= totalPairs && totalPairs > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+      padding: "10px 14px",
+      background: "rgba(52,199,89,0.08)",
+      borderRadius: 8,
+      border: "1.5px solid var(--green)",
+      marginBottom: 12,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--green)" } }, "\u2713 All ", totalPairs, " pair", totalPairs !== 1 ? "s" : "", " tested"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 1 } }, "Rankings are final \u2014 declare a winner or run additional comparisons below."))), !hasWinner && /* @__PURE__ */ React.createElement("div", { style: {
       background: "var(--paper-2)",
       borderRadius: 8,
       padding: 14,
       marginBottom: 16,
-      border: "1.5px solid var(--rule)"
+      border: suggested?.timesRun === 0 ? "1.5px solid var(--blue)" : "1.5px solid var(--rule)"
     } }, /* @__PURE__ */ React.createElement("div", { style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "baseline",
       marginBottom: 8
-    } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, "New Comparison"), suggested && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--blue)" } }, "Suggested: ", suggested.skiA, " vs ", suggested.skiB, suggested.timesRun > 0 ? ` (run ${suggested.timesRun}\xD7)` : "")), activeSkis.length < 2 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-faint)" } }, "Add at least 2 skis in the Fleet tab to begin.") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Ski A (leads first)"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: skiA, onChange: (e) => setSkiA(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 select \u2014"), activeSkis.filter((s) => s.id !== skiB).map((s) => /* @__PURE__ */ React.createElement("option", { key: s.id, value: s.id }, s.id, !isBlind && s.product ? ` \u2014 ${s.product}` : "")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Ski B (leads after swap)"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: skiB, onChange: (e) => setSkiB(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 select \u2014"), activeSkis.filter((s) => s.id !== skiA).map((s) => /* @__PURE__ */ React.createElement("option", { key: s.id, value: s.id }, s.id, !isBlind && s.product ? ` \u2014 ${s.product}` : ""))))), /* @__PURE__ */ React.createElement(
+    } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, suggested?.timesRun === 0 ? "\u25B6 Next Pair" : "New Comparison"), suggested && suggested.timesRun > 0 && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-faint)" } }, "All pairs tested \xB7 additional run")), activeSkis.length < 2 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-faint)" } }, "Add at least 2 skis in the Fleet tab to begin.") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Ski A (leads first)"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: skiA, onChange: (e) => setSkiA(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 select \u2014"), activeSkis.filter((s) => s.id !== skiB).map((s) => /* @__PURE__ */ React.createElement("option", { key: s.id, value: s.id }, s.id, !isBlind && s.product ? ` \u2014 ${s.product}` : "")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Ski B (leads after swap)"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: skiB, onChange: (e) => setSkiB(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014 select \u2014"), activeSkis.filter((s) => s.id !== skiA).map((s) => /* @__PURE__ */ React.createElement("option", { key: s.id, value: s.id }, s.id, !isBlind && s.product ? ` \u2014 ${s.product}` : ""))))), /* @__PURE__ */ React.createElement(
       TI,
       {
         label: "Tester(s)",
@@ -6767,7 +6786,7 @@ Outcome: Eliminated`;
           fontSize: 12,
           color: "var(--ink-faint)",
           fontStyle: "italic"
-        } }, "Result recorded") : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr" } }, /* @__PURE__ */ React.createElement(
+        } }, "Result recorded") : /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr" } }, /* @__PURE__ */ React.createElement(
           "button",
           {
             className: "btn-advance",
@@ -6783,21 +6802,6 @@ Outcome: Eliminated`;
           },
           /* @__PURE__ */ React.createElement(AdvanceIcon, { size: 13, color: "#fff" }),
           " Adv"
-        ), /* @__PURE__ */ React.createElement(
-          "button",
-          {
-            style: {
-              background: "var(--amber)",
-              color: "#fff",
-              border: "none",
-              padding: "14px 0",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer"
-            },
-            onClick: () => markRunnerUp(ski.id)
-          },
-          "2nd"
         ), /* @__PURE__ */ React.createElement(
           "button",
           {
@@ -7527,13 +7531,13 @@ Outcome: Eliminated`;
         borderRadius: "50%",
         background: "var(--green)",
         flexShrink: 0
-      } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: "var(--green)" } }, winner.product), winner.waxForm && /* @__PURE__ */ React.createElement(WaxFormBadge, { form: winner.waxForm }), winner.application && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-faint)" } }, winner.application)), winner && (test.blindMode || !winner.product) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 5, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: {
+      } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: "var(--green)" } }, winner.product), winner.waxForm && /* @__PURE__ */ React.createElement(WaxFormBadge, { form: winner.waxForm }), winner.application && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--ink-faint)" } }, winner.application), test.completedAt && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, "\xB7 ", fmtTime(test.completedAt))), winner && (test.blindMode || !winner.product) && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 5, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: {
         width: 5,
         height: 5,
         borderRadius: "50%",
         background: "var(--green)",
         flexShrink: 0
-      } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: "var(--green)" } }, winner.id, " won")), !winner && active.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 5, fontSize: 11, color: "var(--amber)" } }, active.length, " ski", active.length !== 1 ? "s" : "", " still active")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, winner && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { color: "var(--green)", fontSize: 9 } }, "Winner"), !winner && active.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { color: "var(--amber)", fontSize: 9 } }, "Active"), test.deadline && /* @__PURE__ */ React.createElement(CountdownBadge, { deadline: test.deadline }), /* @__PURE__ */ React.createElement(
+      } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: "var(--green)" } }, winner.id, " won"), test.completedAt && /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, "\xB7 ", fmtTime(test.completedAt))), !winner && active.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 5, fontSize: 11, color: "var(--amber)" } }, active.length, " ski", active.length !== 1 ? "s" : "", " still active")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, winner && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { color: "var(--green)", fontSize: 9 } }, "Winner"), !winner && active.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "tag", style: { color: "var(--amber)", fontSize: 9 } }, "Active"), test.deadline && /* @__PURE__ */ React.createElement(CountdownBadge, { deadline: test.deadline }), /* @__PURE__ */ React.createElement(
         "button",
         {
           onClick: () => setDeadlinePickerTest(test),
