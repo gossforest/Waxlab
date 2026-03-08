@@ -242,6 +242,8 @@ var AppBundle = (() => {
     }
   }
   async function saveEvent(teamCode, event) {
+    const tombstones = lsGet(`waxlab:deleted:${teamCode}`) || [];
+    if (tombstones.includes(event.id)) return false;
     const stamped = { ...event, _savedAt: (/* @__PURE__ */ new Date()).toISOString() };
     const ex = lsGet(`waxlab:events:${teamCode}`) || [];
     lsSet(
@@ -263,23 +265,6 @@ var AppBundle = (() => {
       });
     }
     return true;
-  }
-  async function deleteEventDB(teamCode, eventId) {
-    const ex = lsGet(`waxlab:events:${teamCode}`) || [];
-    lsSet(`waxlab:events:${teamCode}`, ex.filter((e) => e.id !== eventId));
-    const deleted = lsGet(`waxlab:deleted:${teamCode}`) || [];
-    if (!deleted.includes(eventId)) lsSet(`waxlab:deleted:${teamCode}`, [...deleted, eventId]);
-    if (db) {
-      try {
-        const { error } = await db.from("waxlab_events").delete().eq("id", eventId);
-        if (error) {
-          await new Promise((r) => setTimeout(r, 1500));
-          await db.from("waxlab_events").delete().eq("id", eventId).catch((e) => console.warn("deleteEvent retry:", e.message));
-        }
-      } catch (e) {
-        console.warn("deleteEvent bg:", e.message);
-      }
-    }
   }
   async function loadVocab(teamCode) {
     const teamVocab = lsGet(`waxlab:vocab:${teamCode}`) || {};
@@ -8275,6 +8260,8 @@ Outcome: Eliminated`;
     const pendingWrites = useRef(/* @__PURE__ */ new Set());
     const unsubscribeRef = useRef(null);
     const persist = useCallback((event) => {
+      const tombstones = lsGet(`waxlab:deleted:${teamCode}`) || [];
+      if (tombstones.includes(event.id)) return;
       setEvents((p) => p.find((e) => e.id === event.id) ? p.map((e) => e.id === event.id ? event : e) : [...p, event]);
       saveEvent(teamCode, event);
       setSyncStatus(db ? "saving" : "saved");
@@ -8288,11 +8275,13 @@ Outcome: Eliminated`;
     }, [teamCode]);
     useEffect(() => {
       function flushAll() {
+        const tombstoned = new Set(lsGet(`waxlab:deleted:${teamCode}`) || []);
         Object.keys(persistTimers.current).forEach((id) => {
           const timer = persistTimers.current[id];
           if (timer != null) {
             clearTimeout(timer);
             delete persistTimers.current[id];
+            if (tombstoned.has(id)) return;
             setEvents((prev) => {
               const ev = prev.find((e) => e.id === id);
               if (ev && teamCode) {
@@ -8348,14 +8337,21 @@ Outcome: Eliminated`;
       await persist(ev);
     }
     async function doDeleteEvent(id) {
+      const tombstones = lsGet(`waxlab:deleted:${teamCode}`) || [];
+      if (!tombstones.includes(id)) lsSet(`waxlab:deleted:${teamCode}`, [...tombstones, id]);
       if (persistTimers.current[id] != null) {
         clearTimeout(persistTimers.current[id]);
         delete persistTimers.current[id];
       }
       pendingWrites.current.delete(id);
-      await deleteEventDB(teamCode, id);
-      setEvents((p) => p.filter((e) => e.id !== id));
+      const ex = lsGet(`waxlab:events:${teamCode}`) || [];
+      lsSet(`waxlab:events:${teamCode}`, ex.filter((e) => e.id !== id));
       setView("home");
+      setActiveId(null);
+      setEvents((p) => p.filter((e) => e.id !== id));
+      if (db) {
+        db.from("waxlab_events").delete().eq("id", id).catch((e) => console.warn("deleteEvent bg:", e.message));
+      }
     }
     function doRestore(importedEvents) {
       setEvents((prev) => {
