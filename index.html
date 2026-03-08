@@ -7819,19 +7819,19 @@ Outcome: Eliminated`;
   }
   function DeleteToast({ label, onUndo, onCommit, seconds = 5 }) {
     const [remaining, setRemaining] = useState(seconds);
+    const onCommitRef = useRef(onCommit);
+    useEffect(() => {
+      onCommitRef.current = onCommit;
+    }, [onCommit]);
     useEffect(() => {
       const interval = setInterval(() => {
-        setRemaining((r) => {
-          if (r <= 1) {
-            clearInterval(interval);
-            onCommit();
-            return 0;
-          }
-          return r - 1;
-        });
+        setRemaining((r) => r <= 1 ? 0 : r - 1);
       }, 1e3);
       return () => clearInterval(interval);
     }, []);
+    useEffect(() => {
+      if (remaining === 0) onCommitRef.current();
+    }, [remaining]);
     const pct = remaining / seconds * 100;
     return /* @__PURE__ */ React.createElement("div", { style: {
       position: "fixed",
