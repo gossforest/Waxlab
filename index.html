@@ -2671,8 +2671,10 @@ Outcome: Eliminated`;
     t = t.replace(/\b(pear|pare)\b/g, "pair");
     t = t.replace(/\b(ski|skis|the|is|to|and|or|number|id|with|put|set|get)\b/g, " ");
     t = t.replace(/\s+/g, " ").trim();
+    t = t.replace(/\b(snow|air|temp)\s+(\d)/g, "$1__$2");
     t = t.replace(/\b([a-z]{1,3})\s+(\d{1,2})\b/g, "$1$2");
     t = t.replace(/\b([a-z]{1,3})\s+(\d{1,2})\b/g, "$1$2");
+    t = t.replace(/\b(snow|air|temp)__(\d)/g, "$1 $2");
     return t;
   }
   function parseVoiceCommand(transcript, knownIds) {
@@ -2745,6 +2747,7 @@ Outcome: Eliminated`;
     const impliedPair = !detectedAction && allIds.length >= 2;
     if (hasPairKeyword || impliedPair) {
       if (skiId && skiId2) return { action: "pair", skiId, skiId2 };
+      if (hasPairKeyword) return null;
     }
     if (detectedAction === "runnerup") {
       if (skiId) return { action: "runnerup", skiId };
@@ -2762,11 +2765,11 @@ Outcome: Eliminated`;
     if (detectedAction === "rate" && skiId) {
       return { action: "rate", skiId, glide, kick };
     }
-    const negTempMatch = norm.match(/(snow|air).*?\b(minus|negative)\s+(\d+(?:\.\d+)?)/);
+    const negTempMatch = norm.match(/\b(snow|air)\b.*?\b(minus|negative)\s+(\d+(?:\.\d+)?)/);
     if (negTempMatch) {
       return { action: "temp", kind: negTempMatch[1], val: -parseFloat(negTempMatch[3]) };
     }
-    const tempMatch = norm.match(/(snow|air)[\w\s]*?(-?\d+(?:\.\d+)?)/);
+    const tempMatch = norm.match(/\b(snow|air)\b[\w\s]*?(-?\d+(?:\.\d+)?)/);
     if (tempMatch) {
       const val = parseFloat(tempMatch[2]);
       if (!isNaN(val)) return { action: "temp", kind: tempMatch[1], val };
@@ -2943,6 +2946,57 @@ Outcome: Eliminated`;
   }
   function FleetCard({ fleet, onChange, onDelete }) {
     const [expanded, setExpanded] = useState(true);
+    const [quickAdd, setQuickAdd] = useState("");
+    const [quickErr, setQuickErr] = useState("");
+    function parseQuickAdd(text) {
+      const t = text.toLowerCase().trim();
+      const countMatch = t.match(/^(\d+)/);
+      const count = countMatch ? Math.min(parseInt(countMatch[1]), 30) : 1;
+      const grindKwMatch = t.match(/(?:grind|with)\s+([a-z0-9][a-z0-9+\-]*\+?)/i);
+      const grindBareMatch = t.match(/(?<![a-z0-9])([a-z]{1,3}\d[a-z0-9+\-]*\+?)(?![a-z0-9])/i);
+      const grind = grindKwMatch || grindBareMatch ? (grindKwMatch || grindBareMatch)[1].toUpperCase() : "";
+      const flexMatch = t.match(/\bflex\s+(\d+)/i);
+      const flex = flexMatch ? flexMatch[1] : "";
+      const rem = t.replace(/^\d+\s*/, "").replace(/\bflex\s+\d+\b/ig, "").replace(/\b(?:with|grind)\s+[a-z0-9][a-z0-9+\-]*\+?\b/ig, "").replace(/\b[a-z]{1,3}\d[a-z0-9+\-]*\+?\b/ig, "").replace(/\b(pairs?|skis?|of|and|the|with|ski|,)\b/ig, "").trim();
+      const makeWord = rem.match(/\b([a-z]{3,})\b/i);
+      const make = makeWord ? makeWord[1].replace(/^./, (c) => c.toUpperCase()) : "";
+      return { count, make, grind, flex };
+    }
+    function applyQuickAdd() {
+      setQuickErr("");
+      const txt = quickAdd.trim();
+      if (!txt) return;
+      const { count, make, grind, flex } = parseQuickAdd(txt);
+      if (count < 1) {
+        setQuickErr("Couldn't parse a count \u2014 try: 8 Fischers with PL2+");
+        return;
+      }
+      const existingIds = fleet.skis.map((s) => s.id).filter(Boolean);
+      let prefix = "S";
+      if (existingIds.length > 0) {
+        const m = existingIds[existingIds.length - 1].match(/^([A-Z]+)(\d+)$/);
+        if (m) prefix = m[1];
+      } else if (fleet.name) {
+        prefix = fleet.name.replace(/[^A-Z]/gi, "").toUpperCase().slice(0, 2) || "S";
+      }
+      let nextNum = 1;
+      if (existingIds.length > 0) {
+        const nums = existingIds.map((id) => {
+          const m = id.match(/(\d+)$/);
+          return m ? parseInt(m[1]) : 0;
+        });
+        nextNum = Math.max(...nums) + 1;
+      }
+      const newSkis = Array.from({ length: count }, (_, i) => ({
+        id: prefix + (nextNum + i),
+        make: make || "",
+        flex: flex || "",
+        grind: grind || "",
+        notes: ""
+      }));
+      onChange({ ...fleet, skis: [...fleet.skis, ...newSkis] });
+      setQuickAdd("");
+    }
     function updSki(idx, patch) {
       const skis = fleet.skis.map((s, i) => i === idx ? patch : s);
       onChange({ ...fleet, skis });
@@ -3000,7 +3054,7 @@ Outcome: Eliminated`;
         style: { fontSize: 20, color: "var(--red)", padding: "0 4px" }
       },
       "\xD7"
-    ))), expanded && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 12px", borderTop: "1px solid var(--rule)" } }, fleet.skis.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-faint)", padding: "10px 0" } }, "No skis yet. Tap + Add Ski below."), fleet.skis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, paddingTop: 10, paddingBottom: 2 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 64px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "ID")), /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 90px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Make / Model")), /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 70px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Flex")), /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 80px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Grind")), /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 28px" } })), fleet.skis.map((ski, i) => /* @__PURE__ */ React.createElement(
+    ))), expanded && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 14px 12px", borderTop: "1px solid var(--rule)" } }, fleet.skis.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-faint)", padding: "10px 0" } }, 'No skis yet. Use Quick Add below (e.g. "8 Fischers with PL2+") or tap + Add Single Ski.'), fleet.skis.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, paddingTop: 10, paddingBottom: 2 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 64px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "ID")), /* @__PURE__ */ React.createElement("div", { style: { flex: "1 1 90px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Make / Model")), /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 70px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Flex")), /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 80px" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Grind")), /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 28px" } })), fleet.skis.map((ski, i) => /* @__PURE__ */ React.createElement(
       FleetSkiRow,
       {
         key: i,
@@ -3019,14 +3073,35 @@ Outcome: Eliminated`;
         rows: 2,
         style: { marginTop: 4, marginBottom: 8 }
       }
+    ), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 4 } }, "Quick Add"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "inp",
+        value: quickAdd,
+        onChange: (e) => {
+          setQuickAdd(e.target.value);
+          setQuickErr("");
+        },
+        onKeyDown: (e) => e.key === "Enter" && applyQuickAdd(),
+        placeholder: "e.g. 8 Fischers with PL2+  \xB7  6 Salomon flex 52",
+        style: { flex: 1, fontSize: 13, padding: "8px 10px" }
+      }
     ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        onClick: applyQuickAdd,
+        style: { fontSize: 13, padding: "8px 14px", whiteSpace: "nowrap" }
+      },
+      "Add"
+    )), quickErr && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--red)", marginTop: 4 } }, quickErr), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 4, lineHeight: 1.5 } }, 'Count \xB7 Brand \xB7 "with [grind]" \xB7 "flex [num]" \u2014 any order, any subset')), /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "btn-ghost",
         onClick: addSki,
         style: { width: "100%", fontSize: 13, padding: "8px 0" }
       },
-      "+ Add Ski"
+      "+ Add Single Ski"
     )));
   }
   function FleetRegistryView({ teamCode, fleets: fleetsProp, onSave, onBack }) {
@@ -5912,14 +5987,30 @@ Outcome: Eliminated`;
         }
       },
       inPair ? "Selected" : "Select"
-    ), (isElim || isTied) && /* @__PURE__ */ React.createElement(
+    ), (isElim || isTied) && rewaxId !== ski.id && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
       "button",
       {
         className: "btn-ghost",
         style: { fontSize: 12, padding: "5px 10px", minHeight: 34 },
-        onClick: () => setOpen((o) => !o)
+        onClick: () => restore(ski.id)
       },
-      open ? "Close \u25B2" : "Options \u25BC"
+      "\u21A9 Restore"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn",
+        style: { fontSize: 12, padding: "5px 10px", minHeight: 34, background: "var(--blue)" },
+        onClick: () => startRewax(ski)
+      },
+      "\u21BA Re-wax"
+    )), (isElim || isTied) && rewaxId === ski.id && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        style: { fontSize: 12, padding: "5px 10px", minHeight: 34 },
+        onClick: () => setRewaxId(null)
+      },
+      "Cancel"
     ), !isElim && !isTied && /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -5971,25 +6062,6 @@ Outcome: Eliminated`;
         style: { marginBottom: 0 },
         onChange: (v) => updateRating(ski.id, ski.ratings || {}, { feelNotes: v })
       }
-    )), open && (isElim || isTied) && rewaxId !== ski.id && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid var(--rule)", padding: "10px 12px", display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn-ghost",
-        style: { flex: 1, fontSize: 13, minHeight: 40 },
-        onClick: () => {
-          restore(ski.id);
-          setOpen(false);
-        }
-      },
-      "\u21A9 Restore (same wax)"
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn",
-        style: { flex: 1, fontSize: 13, minHeight: 40, background: "var(--blue)" },
-        onClick: () => startRewax(ski)
-      },
-      "\u21BA Re-wax & re-enter"
     )), rewaxId === ski.id && /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid var(--rule)", padding: "12px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--blue)", marginBottom: 10 } }, "Re-wax ", ski.id), /* @__PURE__ */ React.createElement(
       ACI,
       {
@@ -6062,12 +6134,13 @@ Outcome: Eliminated`;
     }
     function doUndo() {
       if (!undoStack.length) return;
-      upd({ skis: undoStack[0].snapshot });
+      const { skis, rounds } = undoStack[0].snapshot;
+      upd({ skis, rounds });
       setUndoStack((p) => p.slice(1));
       setUndoVisible(false);
     }
     function commitPairResult(winnerId, loserId, loserResult) {
-      const snap = [...test.skis || []];
+      const snap = { skis: [...test.skis || []], rounds: [...test.rounds || []] };
       const rs = computeRoundState(test.rounds || [], test.skis || []);
       const roundNum = rs.currentRound;
       const runnerUp = loserResult === "2nd";
@@ -6189,7 +6262,7 @@ Outcome: Eliminated`;
       setRewaxForm("");
     }
     function declareWinner(skiId) {
-      const snap = [...test.skis || []];
+      const snap = { skis: [...test.skis || []], rounds: [...test.rounds || []] };
       const losers = activeSki.filter((s) => s.id !== skiId);
       const loserId = losers.length === 1 ? losers[0].id : null;
       const finalRound = { roundNum: (test.rounds || []).length + 1, skiA: skiId, skiB: loserId, winner: skiId, loser: loserId };
@@ -6210,7 +6283,7 @@ Outcome: Eliminated`;
         } else if (oRes === "elim") {
           commitPairResult(skiId, opponentId, "elim");
         } else if (oRes === "2nd") {
-          const snap = [...test.skis || []];
+          const snap = { skis: [...test.skis || []], rounds: [...test.rounds || []] };
           const rs = computeRoundState(test.rounds || [], test.skis || []);
           const roundNum = rs.currentRound;
           upd({
@@ -6227,7 +6300,7 @@ Outcome: Eliminated`;
     }
     function declareTie() {
       if (activeSki.length !== 2) return;
-      const snap = [...test.skis || []];
+      const snap = { skis: [...test.skis || []], rounds: [...test.rounds || []] };
       const [a, b] = activeSki;
       const roundNum = (test.rounds || []).length + 1;
       const newRound = { roundNum, winner: null, loser: null, tie: true, skiA: a.id, skiB: b.id };
@@ -6367,15 +6440,37 @@ Outcome: Eliminated`;
         fontStyle: "italic",
         paddingTop: 8,
         borderTop: "1px solid var(--rule)"
-      } }, '"', winner.feelNotes, '"'), /* @__PURE__ */ React.createElement(
+      } }, '"', winner.feelNotes, '"'), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10 } }, /* @__PURE__ */ React.createElement(
         "button",
         {
           className: "btn-ghost",
-          style: { marginTop: 10, fontSize: 12, padding: "6px 12px" },
+          style: { fontSize: 12, padding: "6px 12px" },
           onClick: () => setTab("results")
         },
         "View testing flow \u2192"
-      ));
+      ), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "btn-ghost",
+          style: {
+            fontSize: 12,
+            padding: "6px 12px",
+            color: "var(--amber)",
+            borderColor: "var(--amber)"
+          },
+          onClick: () => {
+            if (undoStack.length > 0) {
+              doUndo();
+            } else {
+              upd({
+                skis: (test.skis || []).map((s) => ({ ...s, standing: "Active" })),
+                rounds: (test.rounds || []).slice(0, -1)
+              });
+            }
+          }
+        },
+        "\u21A9 Undo winner"
+      )));
     })(), activeSki.length === 0 && !winner && /* @__PURE__ */ React.createElement("div", { style: {
       textAlign: "center",
       padding: "32px 0",
