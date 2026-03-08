@@ -281,21 +281,29 @@ var AppBundle = (() => {
       }
     }
   }
-  async function loadVocab() {
-    return lsGet("waxlab:vocab:global") || {};
+  async function loadVocab(teamCode) {
+    const teamVocab = lsGet(`waxlab:vocab:${teamCode}`) || {};
+    const globalVocab = lsGet("waxlab:vocab:global") || {};
+    const merged = {};
+    const allCats = /* @__PURE__ */ new Set([...Object.keys(teamVocab), ...Object.keys(globalVocab)]);
+    allCats.forEach((cat) => {
+      merged[cat] = [.../* @__PURE__ */ new Set([...teamVocab[cat] || [], ...globalVocab[cat] || []])].sort();
+    });
+    if (Object.keys(merged).length) lsSet(`waxlab:vocab:${teamCode}`, merged);
+    return merged;
   }
-  async function bgSyncVocab(setVocab) {
+  async function bgSyncVocab(teamCode, setVocab) {
     if (!db) return;
     try {
-      const { data, error } = await db.from("waxlab_vocab").select("category,terms");
+      const { data, error } = await db.from("waxlab_vocab").select("category,terms").eq("team_code", teamCode);
       if (error || !data) return;
-      const v = {};
+      const remote = {};
       data.forEach((r) => {
-        v[r.category] = r.terms;
+        remote[r.category] = r.terms;
       });
-      const local = lsGet("waxlab:vocab:global") || {};
+      const local = lsGet(`waxlab:vocab:${teamCode}`) || {};
       let changed = false;
-      Object.entries(v).forEach(([cat, terms]) => {
+      Object.entries(remote).forEach(([cat, terms]) => {
         const merged = [.../* @__PURE__ */ new Set([...local[cat] || [], ...terms])].sort();
         if (merged.length !== (local[cat] || []).length) {
           local[cat] = merged;
@@ -303,26 +311,62 @@ var AppBundle = (() => {
         }
       });
       if (changed) {
-        lsSet("waxlab:vocab:global", local);
+        lsSet(`waxlab:vocab:${teamCode}`, local);
         setVocab(local);
       }
     } catch (e) {
       console.warn("bgSyncVocab:", e.message);
     }
   }
-  async function addVocabTerms(category, newTerms) {
+  async function addVocabTerms(teamCode, category, newTerms) {
     if (!newTerms?.length) return;
-    const vocab = lsGet("waxlab:vocab:global") || {};
+    const vocab = lsGet(`waxlab:vocab:${teamCode}`) || {};
     vocab[category] = [.../* @__PURE__ */ new Set([...vocab[category] || [], ...newTerms])].sort();
-    lsSet("waxlab:vocab:global", vocab);
+    lsSet(`waxlab:vocab:${teamCode}`, vocab);
     if (db) {
-      db.from("waxlab_vocab").select("terms").eq("category", category).single().then(({ data }) => {
+      db.from("waxlab_vocab").select("terms").eq("team_code", teamCode).eq("category", category).single().then(({ data }) => {
         const merged = [.../* @__PURE__ */ new Set([...data?.terms || [], ...vocab[category]])].sort();
-        return db.from("waxlab_vocab").upsert({ category, terms: merged }, { onConflict: "category" });
+        return db.from("waxlab_vocab").upsert({ team_code: teamCode, category, terms: merged }, { onConflict: "team_code,category" });
       }).catch((e) => console.warn("addVocabTerms bg:", e.message));
     }
   }
-  function subscribeToTeam(teamCode, onEventChange, onVocabChange, onFleetChange) {
+  async function loadCatalog(teamCode) {
+    return lsGet(`waxlab:catalog:${teamCode}`) || [];
+  }
+  async function saveCatalog(teamCode, entries) {
+    lsSet(`waxlab:catalog:${teamCode}`, entries);
+    if (db) {
+      db.from("waxlab_catalog").upsert(
+        { team_code: teamCode, data: entries, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+        { onConflict: "team_code" }
+      ).catch((e) => console.warn("saveCatalog bg:", e.message));
+    }
+  }
+  async function bgSyncCatalog(teamCode, setCatalog) {
+    if (!db) return;
+    try {
+      const { data, error } = await db.from("waxlab_catalog").select("data").eq("team_code", teamCode).single();
+      if (error || !data?.data) return;
+      const remote = data.data;
+      const local = lsGet(`waxlab:catalog:${teamCode}`) || [];
+      const localMap = Object.fromEntries(local.map((e) => [e.id, e]));
+      let changed = false;
+      remote.forEach((e) => {
+        if (!localMap[e.id]) {
+          localMap[e.id] = e;
+          changed = true;
+        }
+      });
+      if (changed) {
+        const merged = Object.values(localMap);
+        lsSet(`waxlab:catalog:${teamCode}`, merged);
+        setCatalog(merged);
+      }
+    } catch (e) {
+      console.warn("bgSyncCatalog:", e.message);
+    }
+  }
+  function subscribeToTeam(teamCode, onEventChange, onVocabChange, onFleetChange, onCatalogChange) {
     if (!db) return () => {
     };
     const evCh = db.channel(`waxlab_events:${teamCode}`).on(
@@ -333,9 +377,9 @@ var AppBundle = (() => {
         else onEventChange({ type: "upsert", event: p.new?.data });
       }
     ).subscribe();
-    const vocabCh = db.channel("waxlab_vocab:global").on(
+    const vocabCh = db.channel(`waxlab_vocab:${teamCode}`).on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "waxlab_vocab" },
+      { event: "*", schema: "public", table: "waxlab_vocab", filter: `team_code=eq.${teamCode}` },
       (p) => {
         if (p.new) onVocabChange(p.new.category, p.new.terms);
       }
@@ -347,10 +391,18 @@ var AppBundle = (() => {
         if (p.new?.data && onFleetChange) onFleetChange(p.new.data);
       }
     ).subscribe();
+    const catalogCh = db.channel(`waxlab_catalog:${teamCode}`).on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "waxlab_catalog", filter: `team_code=eq.${teamCode}` },
+      (p) => {
+        if (p.new?.data && onCatalogChange) onCatalogChange(p.new.data);
+      }
+    ).subscribe();
     return () => {
       db.removeChannel(evCh);
       db.removeChannel(vocabCh);
       db.removeChannel(fleetCh);
+      db.removeChannel(catalogCh);
     };
   }
   var IDB_DB_NAME = "waxlab-photos";
@@ -585,7 +637,45 @@ var AppBundle = (() => {
     } }, /* @__PURE__ */ React.createElement("span", { style: { animation: "spin 1s linear infinite", display: "inline-block" } }, "\u21BB"), /* @__PURE__ */ React.createElement("span", null, "Saving\u2026"));
     return null;
   }
-  function ProductLibrary({ allEvents, useCelsius, onBack, onImportHistory }) {
+  function ProductLibrary({ allEvents, useCelsius, onBack, onImportHistory, catalog, onCatalogSave, teamCode, vocab, onVocabAdd }) {
+    const [tab, setTab] = useState("results");
+    return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700 } }, "Product Library"), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        onClick: onImportHistory,
+        style: { fontSize: 11, padding: "6px 10px", minHeight: 32 }
+      },
+      "Import History"
+    )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", borderBottom: "1.5px solid var(--rule)", padding: "0 16px" } }, [["results", "Test Results"], ["catalog", "Catalog"]].map(([id, label]) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: id,
+        onClick: () => setTab(id),
+        style: {
+          padding: "10px 16px",
+          fontSize: 13,
+          fontWeight: tab === id ? 700 : 500,
+          color: tab === id ? "var(--ink)" : "var(--ink-mid)",
+          background: "none",
+          border: "none",
+          borderBottom: tab === id ? "2.5px solid var(--accent)" : "2.5px solid transparent",
+          cursor: "pointer",
+          marginBottom: -1.5
+        }
+      },
+      label
+    ))), tab === "results" && /* @__PURE__ */ React.createElement(ProductResultsTab, { allEvents, useCelsius }), tab === "catalog" && /* @__PURE__ */ React.createElement(
+      ProductCatalogTab,
+      {
+        catalog,
+        onSave: onCatalogSave,
+        vocab,
+        onVocabAdd
+      }
+    ));
+  }
+  function ProductResultsTab({ allEvents, useCelsius }) {
     const [catFilter, setCatFilter] = useState("all");
     const [snowFilter, setSnowFilter] = useState("");
     const [tempBand, setTempBand] = useState("");
@@ -669,15 +759,7 @@ var AppBundle = (() => {
       if (f == null) return "\u2014";
       return useCelsius ? `${((f - 32) * 5 / 9).toFixed(1)}\xB0C` : `${Math.round(f)}\xB0F`;
     }
-    return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700 } }, "Product Library"), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "btn-ghost",
-        onClick: onImportHistory,
-        style: { fontSize: 11, padding: "6px 10px", minHeight: 32 }
-      },
-      "Import History"
-    )), /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Category"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: catFilter, onChange: (e) => setCatFilter(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "all" }, "All"), /* @__PURE__ */ React.createElement("option", { value: "glide" }, "Glide"), /* @__PURE__ */ React.createElement("option", { value: "kick" }, "Kick"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Sort by"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: sortBy, onChange: (e) => setSortBy(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "wins" }, "Most wins"), /* @__PURE__ */ React.createElement("option", { value: "winrate" }, "Win rate"), /* @__PURE__ */ React.createElement("option", { value: "rating" }, "Avg rating"), /* @__PURE__ */ React.createElement("option", { value: "name" }, "Name A\u2013Z")))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Snow type"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: snowFilter, onChange: (e) => setSnowFilter(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Any"), snowTypes.map((t) => /* @__PURE__ */ React.createElement("option", { key: t, value: t }, t)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Air temp range"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: tempBand, onChange: (e) => setTempBand(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Any"), /* @__PURE__ */ React.createElement("option", { value: "warm" }, "Warm (\u2265 ", useCelsius ? "-2\xB0C" : "28\xB0F", ")"), /* @__PURE__ */ React.createElement("option", { value: "mid" }, "Mid (", useCelsius ? "-10 to -2\xB0C" : "14\u201328\xB0F", ")"), /* @__PURE__ */ React.createElement("option", { value: "cold" }, "Cold (< ", useCelsius ? "-10\xB0C" : "14\xB0F", ")")))), products.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", textAlign: "center", padding: "40px 0", fontSize: 14 } }, "No product data yet. Winners from tests will appear here."), filtered.length === 0 && products.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", textAlign: "center", padding: "32px 0", fontSize: 14 } }, "No products match these filters."), filtered.map((p, i) => /* @__PURE__ */ React.createElement("div", { key: p.product, className: "card", style: { marginBottom: 8, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Category"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: catFilter, onChange: (e) => setCatFilter(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "all" }, "All"), /* @__PURE__ */ React.createElement("option", { value: "glide" }, "Glide"), /* @__PURE__ */ React.createElement("option", { value: "kick" }, "Kick"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Sort by"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: sortBy, onChange: (e) => setSortBy(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "wins" }, "Most wins"), /* @__PURE__ */ React.createElement("option", { value: "winrate" }, "Win rate"), /* @__PURE__ */ React.createElement("option", { value: "rating" }, "Avg rating"), /* @__PURE__ */ React.createElement("option", { value: "name" }, "Name A\u2013Z")))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Snow type"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: snowFilter, onChange: (e) => setSnowFilter(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Any"), snowTypes.map((t) => /* @__PURE__ */ React.createElement("option", { key: t, value: t }, t)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Air temp range"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: tempBand, onChange: (e) => setTempBand(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Any"), /* @__PURE__ */ React.createElement("option", { value: "warm" }, "Warm (\u2265 ", useCelsius ? "-2\xB0C" : "28\xB0F", ")"), /* @__PURE__ */ React.createElement("option", { value: "mid" }, "Mid (", useCelsius ? "-10 to -2\xB0C" : "14\u201328\xB0F", ")"), /* @__PURE__ */ React.createElement("option", { value: "cold" }, "Cold (< ", useCelsius ? "-10\xB0C" : "14\xB0F", ")")))), products.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", textAlign: "center", padding: "40px 0", fontSize: 14 } }, "No product data yet. Winners from tests will appear here."), filtered.length === 0 && products.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", textAlign: "center", padding: "32px 0", fontSize: 14 } }, "No products match these filters."), filtered.map((p, i) => /* @__PURE__ */ React.createElement("div", { key: p.product, className: "card", style: { marginBottom: 8, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "flex-start",
@@ -697,6 +779,304 @@ var AppBundle = (() => {
       " \xD7",
       count
     )))))));
+  }
+  var CATALOG_CATEGORIES = ["glide", "kick", "kick-glide"];
+  var WAX_FORMS_CATALOG = ["", "liquid", "paste", "powder", "solid", "spray", "klister", "klister-base", "base-binder", "other"];
+  function newCatalogEntry() {
+    return {
+      id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      product: "",
+      application: "",
+      category: "",
+      waxForm: "",
+      tempMinF: "",
+      tempMaxF: "",
+      snowTypes: [],
+      notes: "",
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  function ProductCatalogTab({ catalog = [], onSave, vocab, onVocabAdd }) {
+    const [entries, setEntries] = useState(catalog);
+    const [editing, setEditing] = useState(null);
+    const [draft, setDraft] = useState(null);
+    const [search, setSearch] = useState("");
+    const [catFilter, setCatFilter] = useState("all");
+    const [confirmDelete, setConfirmDelete] = useState(null);
+    useEffect(() => {
+      setEntries(catalog);
+    }, [catalog]);
+    const filtered = entries.filter((e) => catFilter === "all" || e.category === catFilter).filter((e) => !search || e.product.toLowerCase().includes(search.toLowerCase()) || e.application?.toLowerCase().includes(search.toLowerCase()) || e.notes?.toLowerCase().includes(search.toLowerCase())).sort((a, b) => (a.product || "").localeCompare(b.product || ""));
+    function startNew() {
+      const e = newCatalogEntry();
+      setDraft(e);
+      setEditing("new");
+    }
+    function startEdit(e) {
+      setDraft({ ...e });
+      setEditing(e.id);
+    }
+    function cancelEdit() {
+      setEditing(null);
+      setDraft(null);
+    }
+    function commitEdit() {
+      if (!draft.product.trim()) return;
+      const trimmed = { ...draft, product: draft.product.trim(), application: draft.application?.trim() || "" };
+      let next;
+      if (editing === "new") {
+        next = [...entries, trimmed];
+      } else {
+        next = entries.map((e) => e.id === editing ? trimmed : e);
+      }
+      setEntries(next);
+      onSave(next);
+      if (trimmed.product) onVocabAdd?.("products", [trimmed.product]);
+      if (trimmed.application) onVocabAdd?.("applications", [trimmed.application]);
+      setEditing(null);
+      setDraft(null);
+    }
+    function requestDelete(id) {
+      setConfirmDelete(id);
+    }
+    function confirmDel() {
+      const next = entries.filter((e) => e.id !== confirmDelete);
+      setEntries(next);
+      onSave(next);
+      setConfirmDelete(null);
+    }
+    const SNOW_OPTIONS = ["Dry powder", "Cold packed", "Transformed", "Wet", "Klister", "Variable"];
+    function toggleSnowType(type) {
+      const cur = draft.snowTypes || [];
+      setDraft((d) => ({ ...d, snowTypes: cur.includes(type) ? cur.filter((t) => t !== type) : [...cur, type] }));
+    }
+    return /* @__PURE__ */ React.createElement("div", { style: { padding: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "inp",
+        placeholder: "Search products\u2026",
+        value: search,
+        onChange: (e) => setSearch(e.target.value),
+        style: { flex: 1, minWidth: 140, fontSize: 13 }
+      }
+    ), /* @__PURE__ */ React.createElement(
+      "select",
+      {
+        className: "inp",
+        value: catFilter,
+        onChange: (e) => setCatFilter(e.target.value),
+        style: { width: 120, fontSize: 13 }
+      },
+      /* @__PURE__ */ React.createElement("option", { value: "all" }, "All categories"),
+      CATALOG_CATEGORIES.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c))
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn",
+        onClick: startNew,
+        style: { fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }
+      },
+      "+ Add Product"
+    )), entries.length === 0 && editing !== "new" && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "48px 16px", color: "var(--ink-faint)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 32, marginBottom: 12 } }, "\u{1F5C2}\uFE0F"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 600, marginBottom: 6 } }, "No products in your catalog yet"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, lineHeight: 1.6, maxWidth: 300, margin: "0 auto" } }, "Add products manually to document your team's kit. Catalog entries also appear in test autocomplete.")), editing === "new" && draft && /* @__PURE__ */ React.createElement(
+      CatalogEditForm,
+      {
+        draft,
+        setDraft,
+        onCommit: commitEdit,
+        onCancel: cancelEdit,
+        toggleSnowType,
+        vocab,
+        snowOptions: SNOW_OPTIONS,
+        isNew: true
+      }
+    ), confirmDelete && /* @__PURE__ */ React.createElement("div", { style: {
+      background: "var(--red)",
+      color: "#fff",
+      borderRadius: 8,
+      padding: "12px 16px",
+      marginBottom: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 12
+    } }, /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13 } }, "Delete this product from your catalog?"), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: confirmDel,
+        style: {
+          background: "#fff",
+          color: "var(--red)",
+          border: "none",
+          borderRadius: 6,
+          padding: "6px 14px",
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: "pointer"
+        }
+      },
+      "Delete"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: () => setConfirmDelete(null),
+        style: {
+          background: "rgba(255,255,255,0.2)",
+          color: "#fff",
+          border: "none",
+          borderRadius: 6,
+          padding: "6px 14px",
+          fontSize: 13,
+          cursor: "pointer"
+        }
+      },
+      "Cancel"
+    )), filtered.map((entry) => editing === entry.id && draft ? /* @__PURE__ */ React.createElement(
+      CatalogEditForm,
+      {
+        key: entry.id,
+        draft,
+        setDraft,
+        onCommit: commitEdit,
+        onCancel: cancelEdit,
+        toggleSnowType,
+        vocab,
+        snowOptions: SNOW_OPTIONS
+      }
+    ) : /* @__PURE__ */ React.createElement(
+      CatalogEntryCard,
+      {
+        key: entry.id,
+        entry,
+        onEdit: () => startEdit(entry),
+        onDelete: () => requestDelete(entry.id)
+      }
+    )), filtered.length === 0 && entries.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "32px 0", color: "var(--ink-faint)", fontSize: 13 } }, "No products match your search."));
+  }
+  function CatalogEntryCard({ entry, onEdit, onDelete }) {
+    const useCelsius = lsGet("waxlab:celsius") || false;
+    function dispTemp2(f) {
+      if (f == null || f === "") return null;
+      return useCelsius ? `${((Number(f) - 32) * 5 / 9).toFixed(0)}\xB0C` : `${Number(f)}\xB0F`;
+    }
+    const tMin = dispTemp2(entry.tempMinF), tMax = dispTemp2(entry.tempMaxF);
+    const tempRange = tMin && tMax ? `${tMin} \u2013 ${tMax}` : tMin || tMax || null;
+    return /* @__PURE__ */ React.createElement("div", { className: "card", style: { marginBottom: 8, padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, entry.product), entry.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-mid)", marginTop: 2 } }, entry.application), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 } }, entry.category && /* @__PURE__ */ React.createElement("span", { className: "tag mono", style: { fontSize: 10 } }, entry.category), entry.waxForm && /* @__PURE__ */ React.createElement("span", { className: "tag mono", style: { fontSize: 10 } }, entry.waxForm), tempRange && /* @__PURE__ */ React.createElement("span", { className: "tag mono", style: { fontSize: 10 } }, "\u{1F321} ", tempRange), (entry.snowTypes || []).map((t) => /* @__PURE__ */ React.createElement("span", { key: t, className: "tag mono", style: { fontSize: 10 } }, t))), entry.notes && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--ink-mid)", marginTop: 5, lineHeight: 1.5 } }, entry.notes)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginLeft: 8, flexShrink: 0 } }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: onEdit,
+        className: "btn-ghost",
+        style: { fontSize: 12, padding: "5px 10px", minHeight: 30 }
+      },
+      "Edit"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: onDelete,
+        className: "btn-text",
+        style: { fontSize: 12, color: "var(--red)", padding: "5px 8px" }
+      },
+      "\u2715"
+    ))));
+  }
+  function CatalogEditForm({ draft, setDraft, onCommit, onCancel, toggleSnowType, vocab, snowOptions, isNew }) {
+    const upd = (patch) => setDraft((d) => ({ ...d, ...patch }));
+    const useCelsius = lsGet("waxlab:celsius") || false;
+    function fToC2(f) {
+      return f === "" || f == null ? "" : ((Number(f) - 32) * 5 / 9).toFixed(0);
+    }
+    function cToF2(c) {
+      return c === "" || c == null ? "" : Math.round(Number(c) * 9 / 5 + 32);
+    }
+    function handleTempMin(val) {
+      upd({ tempMinF: useCelsius ? String(cToF2(val)) : val });
+    }
+    function handleTempMax(val) {
+      upd({ tempMaxF: useCelsius ? String(cToF2(val)) : val });
+    }
+    const tempMinDisplay = useCelsius ? fToC2(draft.tempMinF) : draft.tempMinF || "";
+    const tempMaxDisplay = useCelsius ? fToC2(draft.tempMaxF) : draft.tempMaxF || "";
+    const unit = useCelsius ? "\xB0C" : "\xB0F";
+    return /* @__PURE__ */ React.createElement("div", { className: "card", style: {
+      marginBottom: 12,
+      padding: "14px 14px",
+      border: "1.5px solid var(--accent)",
+      borderRadius: 10
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 12, color: "var(--accent)" } }, isNew ? "Add Product to Catalog" : "Edit Product"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { gridColumn: "1/-1" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Product name *"), /* @__PURE__ */ React.createElement(
+      AutocompleteInput,
+      {
+        value: draft.product || "",
+        onChange: (v) => upd({ product: v }),
+        suggestions: vocab?.products || [],
+        placeholder: "e.g. Swix HF7"
+      }
+    )), /* @__PURE__ */ React.createElement("div", { style: { gridColumn: "1/-1" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Application"), /* @__PURE__ */ React.createElement(
+      AutocompleteInput,
+      {
+        value: draft.application || "",
+        onChange: (v) => upd({ application: v }),
+        suggestions: vocab?.applications || [],
+        placeholder: "e.g. 2 layers iron"
+      }
+    )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Category"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: draft.category || "", onChange: (e) => upd({ category: e.target.value }) }, /* @__PURE__ */ React.createElement("option", { value: "" }, "\u2014"), CATALOG_CATEGORIES.map((c) => /* @__PURE__ */ React.createElement("option", { key: c, value: c }, c)))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Wax form"), /* @__PURE__ */ React.createElement("select", { className: "inp", value: draft.waxForm || "", onChange: (e) => upd({ waxForm: e.target.value }) }, WAX_FORMS_CATALOG.map((f) => /* @__PURE__ */ React.createElement("option", { key: f, value: f }, f || "\u2014")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Temp min (", unit, ")"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "inp",
+        type: "number",
+        value: tempMinDisplay,
+        onChange: (e) => handleTempMin(e.target.value),
+        placeholder: useCelsius ? "-15" : "+5"
+      }
+    )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Lbl, null, "Temp max (", unit, ")"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "inp",
+        type: "number",
+        value: tempMaxDisplay,
+        onChange: (e) => handleTempMax(e.target.value),
+        placeholder: useCelsius ? "-2" : "28"
+      }
+    ))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Snow types"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 } }, snowOptions.map((t) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: t,
+        onClick: () => toggleSnowType(t),
+        style: {
+          padding: "4px 10px",
+          fontSize: 12,
+          borderRadius: 16,
+          border: "1.5px solid var(--rule)",
+          cursor: "pointer",
+          background: (draft.snowTypes || []).includes(t) ? "var(--accent)" : "var(--paper-2)",
+          color: (draft.snowTypes || []).includes(t) ? "#fff" : "var(--ink)"
+        }
+      },
+      t
+    )))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Notes"), /* @__PURE__ */ React.createElement(
+      "textarea",
+      {
+        className: "inp",
+        value: draft.notes || "",
+        onChange: (e) => upd({ notes: e.target.value }),
+        rows: 2,
+        placeholder: "Usage notes, conditions, tips\u2026"
+      }
+    )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn",
+        onClick: onCommit,
+        disabled: !draft.product?.trim(),
+        style: { flex: 1, fontSize: 14 }
+      },
+      isNew ? "Add to Catalog" : "Save Changes"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn-ghost",
+        onClick: onCancel,
+        style: { fontSize: 14, padding: "8px 16px" }
+      },
+      "Cancel"
+    )));
   }
   function parseHistoricalData(raw) {
     const text = raw.trim();
@@ -7601,6 +7981,7 @@ Outcome: Eliminated`;
     const [events, setEvents] = useState([]);
     const [vocab, setVocab] = useState({});
     const [fleets, setFleets] = useState([]);
+    const [catalog, setCatalog] = useState([]);
     const [view, setView] = useState("home");
     const [activeId, setActiveId] = useState(null);
     const [activeSessionId, setActiveSessionId] = useState(null);
@@ -7652,7 +8033,8 @@ Outcome: Eliminated`;
         setEvents(evs);
         setAllEventsGlobal(evs);
       });
-      bgSyncVocab((v) => setVocab(v));
+      bgSyncVocab(code, (v) => setVocab(v));
+      bgSyncCatalog(code, setCatalog);
       const unsub = subscribeToTeam(
         code,
         (change) => {
@@ -7669,8 +8051,12 @@ Outcome: Eliminated`;
             });
           }
         },
-        (cat, terms) => setVocab((p) => ({ ...p, [cat]: terms })),
-        (updatedFleets) => setFleets(updatedFleets)
+        (vocabCat, terms) => setVocab((p) => ({ ...p, [vocabCat]: terms })),
+        (updatedFleets) => setFleets(updatedFleets),
+        (updatedCatalog) => {
+          lsSet(`waxlab:catalog:${code}`, updatedCatalog);
+          setCatalog(updatedCatalog);
+        }
       );
       unsubscribeRef.current = unsub;
     }
@@ -7678,11 +8064,17 @@ Outcome: Eliminated`;
       setLoading(true);
       setTeamCode(code);
       setView("home");
-      const [evs, voc, fls, allEvs] = await Promise.all([loadTeamEvents(code), loadVocab(), loadFleets(code), loadAllEvents()]);
+      const [evs, voc, fls, allEvs, cat] = await Promise.all([loadTeamEvents(code), loadVocab(code), loadFleets(code), loadAllEvents(), loadCatalog(code)]);
+      const seedVoc = { ...voc || {} };
+      (cat || []).forEach((e) => {
+        if (e.product) seedVoc.products = [.../* @__PURE__ */ new Set([...seedVoc.products || [], e.product])].sort();
+        if (e.application) seedVoc.applications = [.../* @__PURE__ */ new Set([...seedVoc.applications || [], e.application])].sort();
+      });
       setEvents(evs || []);
-      setVocab(voc || {});
+      setVocab(seedVoc);
       setFleets(fls || []);
       setAllEventsGlobal(allEvs || []);
+      setCatalog(cat || []);
       if (!lsGet(`waxlab:seen:${code}`)) {
         setShowOnboard(true);
         lsSet(`waxlab:seen:${code}`, true);
@@ -7692,7 +8084,8 @@ Outcome: Eliminated`;
         setEvents(evs2);
         setAllEventsGlobal(evs2);
       });
-      bgSyncVocab((v) => setVocab(v));
+      bgSyncVocab(code, (v) => setVocab(v));
+      bgSyncCatalog(code, setCatalog);
       if (unsubscribeRef.current) {
         try {
           unsubscribeRef.current();
@@ -7716,8 +8109,12 @@ Outcome: Eliminated`;
             });
           }
         },
-        (cat, terms) => setVocab((p) => ({ ...p, [cat]: terms })),
-        (updatedFleets) => setFleets(updatedFleets)
+        (vocabCat, terms) => setVocab((p) => ({ ...p, [vocabCat]: terms })),
+        (updatedFleets) => setFleets(updatedFleets),
+        (updatedCatalog) => {
+          lsSet(`waxlab:catalog:${code}`, updatedCatalog);
+          setCatalog(updatedCatalog);
+        }
       );
       unsubscribeRef.current = unsub;
       return unsub;
@@ -7835,8 +8232,8 @@ Outcome: Eliminated`;
       const cleaned = terms.map((t) => t.trim()).filter(Boolean);
       if (!cleaned.length) return;
       setVocab((p) => ({ ...p, [category]: [.../* @__PURE__ */ new Set([...p[category] || [], ...cleaned])].sort() }));
-      await addVocabTerms(category, cleaned);
-    }, []);
+      await addVocabTerms(teamCode, category, cleaned);
+    }, [teamCode]);
     if (!teamCode) return /* @__PURE__ */ React.createElement(TeamSelector, { onJoin: joinTeam });
     if (loading) return /* @__PURE__ */ React.createElement("div", { style: {
       display: "flex",
@@ -7908,7 +8305,15 @@ Outcome: Eliminated`;
           allEvents: allEventsForPrediction,
           useCelsius,
           onBack: () => setView("home"),
-          onImportHistory: () => setView("import-history")
+          onImportHistory: () => setView("import-history"),
+          catalog,
+          onCatalogSave: async (updated) => {
+            setCatalog(updated);
+            await saveCatalog(teamCode, updated);
+          },
+          vocab,
+          onVocabAdd: addVocab,
+          teamCode
         }
       ));
     if (view === "import-history")

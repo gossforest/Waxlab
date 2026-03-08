@@ -55,11 +55,17 @@ alter publication supabase_realtime add table waxlab_events;
 
 
 -- ─── VOCABULARY ──────────────────────────────────────────────────────────────
+-- Per-team autocomplete vocabulary (products, applications, grooming terms).
+-- Primary key is (team_code, category) so each team has independent vocab.
 
 create table if not exists waxlab_vocab (
-  category  text primary key,
-  terms     text[] not null default '{}'
+  team_code text not null,
+  category  text not null,
+  terms     text[] not null default '{}',
+  primary key (team_code, category)
 );
+
+create index if not exists waxlab_vocab_team_code_idx on waxlab_vocab (team_code);
 
 alter table waxlab_vocab enable row level security;
 
@@ -68,6 +74,25 @@ create policy "Public insert" on waxlab_vocab for insert with check (true);
 create policy "Public update" on waxlab_vocab for update using (true);
 
 alter publication supabase_realtime add table waxlab_vocab;
+
+
+-- ─── PRODUCT CATALOG ─────────────────────────────────────────────────────────
+-- Per-team manually curated product catalog with full metadata.
+-- Stored as a single JSON array per team (same pattern as waxlab_fleets).
+
+create table if not exists waxlab_catalog (
+  team_code   text primary key,
+  data        jsonb not null default '[]',
+  updated_at  timestamptz not null default now()
+);
+
+alter table waxlab_catalog enable row level security;
+
+create policy "Public read"   on waxlab_catalog for select using (true);
+create policy "Public insert" on waxlab_catalog for insert with check (true);
+create policy "Public update" on waxlab_catalog for update using (true);
+
+alter publication supabase_realtime add table waxlab_catalog;
 
 
 -- ─── FLEETS ──────────────────────────────────────────────────────────────────
