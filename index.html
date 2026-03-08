@@ -201,6 +201,24 @@ var AppBundle = (() => {
     });
   }
   var WRITE_QUEUE_KEY = "waxlab:writeQueue";
+  var DELETE_QUEUE_KEY = "waxlab:deleteQueue";
+  function queueDelete(teamCode, eventId) {
+    try {
+      const q = lsGet(DELETE_QUEUE_KEY) || [];
+      if (!q.some((r) => r.eventId === eventId)) {
+        q.push({ teamCode, eventId, ts: Date.now() });
+        lsSet(DELETE_QUEUE_KEY, q);
+      }
+    } catch (e) {
+    }
+  }
+  function dequeueDelete(eventId) {
+    try {
+      const q = lsGet(DELETE_QUEUE_KEY) || [];
+      lsSet(DELETE_QUEUE_KEY, q.filter((r) => r.eventId !== eventId));
+    } catch (e) {
+    }
+  }
   function queueWrite(teamCode, event) {
     try {
       const q = lsGet(WRITE_QUEUE_KEY) || [];
@@ -219,25 +237,40 @@ var AppBundle = (() => {
   }
   async function flushWriteQueue() {
     if (!db) return;
-    const q = lsGet(WRITE_QUEUE_KEY) || [];
-    if (!q.length) return;
     const cutoff = Date.now() - 48 * 60 * 60 * 1e3;
-    const fresh = q.filter((r) => (r.ts || 0) > cutoff);
-    if (fresh.length !== q.length) lsSet(WRITE_QUEUE_KEY, fresh);
-    for (const { teamCode, eventId } of [...fresh]) {
-      const evs = lsGet(`waxlab:events:${teamCode}`) || [];
-      const ev = evs.find((e) => e.id === eventId);
-      if (!ev) {
-        dequeueWrite(eventId);
-        continue;
+    const wq = lsGet(WRITE_QUEUE_KEY) || [];
+    if (wq.length) {
+      const freshW = wq.filter((r) => (r.ts || 0) > cutoff);
+      if (freshW.length !== wq.length) lsSet(WRITE_QUEUE_KEY, freshW);
+      for (const { teamCode, eventId } of [...freshW]) {
+        const evs = lsGet(`waxlab:events:${teamCode}`) || [];
+        const ev = evs.find((e) => e.id === eventId);
+        const deletedIds = lsGet(`waxlab:deleted:${teamCode}`) || [];
+        if (!ev || deletedIds.includes(eventId)) {
+          dequeueWrite(eventId);
+          if (deletedIds.includes(eventId)) queueDelete(teamCode, eventId);
+          continue;
+        }
+        try {
+          const { error } = await db.from("waxlab_events").upsert(
+            { id: ev.id, team_code: teamCode, data: ev, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+            { onConflict: "id" }
+          );
+          if (!error) dequeueWrite(eventId);
+        } catch (e) {
+        }
       }
-      try {
-        const { error } = await db.from("waxlab_events").upsert(
-          { id: ev.id, team_code: teamCode, data: ev, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
-          { onConflict: "id" }
-        );
-        if (!error) dequeueWrite(eventId);
-      } catch (e) {
+    }
+    const dq = lsGet(DELETE_QUEUE_KEY) || [];
+    if (dq.length) {
+      const freshD = dq.filter((r) => (r.ts || 0) > cutoff);
+      if (freshD.length !== dq.length) lsSet(DELETE_QUEUE_KEY, freshD);
+      for (const { teamCode, eventId } of [...freshD]) {
+        try {
+          const { error } = await db.from("waxlab_events").delete().eq("id", eventId);
+          if (!error) dequeueDelete(eventId);
+        } catch (e) {
+        }
       }
     }
   }
@@ -8350,7 +8383,11 @@ Outcome: Eliminated`;
       setActiveId(null);
       setEvents((p) => p.filter((e) => e.id !== id));
       if (db) {
-        db.from("waxlab_events").delete().eq("id", id).catch((e) => console.warn("deleteEvent bg:", e.message));
+        db.from("waxlab_events").delete().eq("id", id).then(({ error }) => {
+          if (error) queueDelete(teamCode, id);
+        }).catch(() => queueDelete(teamCode, id));
+      } else {
+        queueDelete(teamCode, id);
       }
     }
     function doRestore(importedEvents) {
