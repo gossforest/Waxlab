@@ -6111,7 +6111,7 @@ Outcome: Eliminated`;
       setOpen(false);
     } }, "Re-enter ", ski.id), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", style: { flex: 1 }, onClick: () => setRewaxId(null) }, "Cancel"))));
   }
-  function TestView({ test, onUpdate, onBack, vocab, onVocabAdd, useCelsius, onUnitToggle, teamCode, eventId, fleets = [] }) {
+  function TestView({ test, onUpdate, onBack, vocab, onVocabAdd, useCelsius, onUnitToggle, teamCode, eventId, fleets = [], eventForecast = null, onUpdateEventForecast }) {
     const [tab, setTab] = useState(test.category === "glide-out" || test.type === "Glide Out" ? "glideout" : "tournament");
     const [undoStack, setUndoStack] = useState([]);
     const [undoVisible, setUndoVisible] = useState(false);
@@ -6161,26 +6161,27 @@ Outcome: Eliminated`;
       const snap = { skis: [...test.skis || []], rounds: [...test.rounds || []] };
       const rs = computeRoundState(test.rounds || [], test.skis || []);
       const roundNum = rs.currentRound;
-      const runnerUp = loserResult === "2nd";
-      const newRound = {
-        roundNum,
-        skiA: winnerId,
-        skiB: loserId,
-        winner: winnerId,
-        loser: loserId,
-        ...runnerUp ? { runnerUp: true } : {}
-      };
+      const newRound = { roundNum, skiA: winnerId, skiB: loserId, winner: winnerId, loser: loserId };
+      const remainingActive = activeSki.filter((x) => x.id !== loserId && x.id !== winnerId);
+      const isLastPair = remainingActive.length === 0;
       const newSkis = (test.skis || []).map((s) => {
-        if (s.id === winnerId) {
-          const remainingActive = activeSki.filter((x) => x.id !== loserId && x.id !== winnerId);
-          return { ...s, standing: remainingActive.length === 0 && !runnerUp ? "Winner" : "Active" };
-        }
-        if (s.id === loserId) {
-          return { ...s, standing: runnerUp ? "Active" : "Eliminated" };
-        }
+        if (s.id === winnerId) return { ...s, standing: isLastPair ? "Winner" : "Active" };
+        if (s.id === loserId) return { ...s, standing: "Eliminated" };
         return s;
       });
-      upd({ skis: newSkis, rounds: [...test.rounds || [], newRound] });
+      const completedAt = isLastPair ? nowStr() : void 0;
+      const lastSnow = isLastPair ? (test.snowTemps || []).slice(-1)[0]?.tempF ?? null : null;
+      const lastAir = isLastPair ? (test.airTemps || []).slice(-1)[0]?.tempF ?? null : null;
+      const completedConditions = isLastPair && (lastSnow != null || lastAir != null) ? {
+        ...lastSnow != null ? { snowTempF: lastSnow } : {},
+        ...lastAir != null ? { airTempF: lastAir } : {}
+      } : void 0;
+      upd({
+        skis: newSkis,
+        rounds: [...test.rounds || [], newRound],
+        ...completedAt ? { completedAt } : {},
+        ...completedConditions ? { completedConditions } : {}
+      });
       pushUndo(snap, `${winnerId} advanced over ${loserId}`);
       setPendingResult(null);
     }
@@ -6288,9 +6289,17 @@ Outcome: Eliminated`;
       const losers = activeSki.filter((s) => s.id !== skiId);
       const loserId = losers.length === 1 ? losers[0].id : null;
       const finalRound = { roundNum: (test.rounds || []).length + 1, skiA: skiId, skiB: loserId, winner: skiId, loser: loserId };
+      const lastSnow = (test.snowTemps || []).slice(-1)[0]?.tempF ?? null;
+      const lastAir = (test.airTemps || []).slice(-1)[0]?.tempF ?? null;
+      const completedConditions = lastSnow != null || lastAir != null ? {
+        ...lastSnow != null ? { snowTempF: lastSnow } : {},
+        ...lastAir != null ? { airTempF: lastAir } : {}
+      } : null;
       upd({
         skis: (test.skis || []).map((s) => ({ ...s, standing: s.id === skiId ? "Winner" : "Eliminated" })),
-        rounds: [...test.rounds || [], finalRound]
+        rounds: [...test.rounds || [], finalRound],
+        completedAt: nowStr(),
+        ...completedConditions ? { completedConditions } : {}
       });
       pushUndo(snap, "Winner declared");
     }
@@ -6455,7 +6464,83 @@ Outcome: Eliminated`;
         textTransform: "uppercase",
         letterSpacing: "0.08em",
         marginBottom: 4
-      } }, "Winner"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 800 } }, !isBlind ? winner.product || winner.id : winner.id), !isBlind && winner.id && winner.product && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 1 } }, winner.id), !isBlind && winner.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginTop: 2 } }, winner.application), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 6 } }, matchCount > 0 ? `${matchCount} round${matchCount !== 1 ? "s" : ""}` : "", beatCount > 0 ? `, beat ${beatCount} ski${beatCount !== 1 ? "s" : ""}` : "")), comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max: isGlide ? 10 : 20 })), !isBlind && winner.feelNotes && /* @__PURE__ */ React.createElement("div", { style: {
+      } }, "Winner"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 20, fontWeight: 800 } }, !isBlind ? winner.product || winner.id : winner.id), !isBlind && winner.id && winner.product && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)", marginTop: 1 } }, winner.id), !isBlind && winner.application && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--ink-mid)", marginTop: 2 } }, winner.application), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 6 } }, matchCount > 0 ? `${matchCount} round${matchCount !== 1 ? "s" : ""}` : "", beatCount > 0 ? `, beat ${beatCount} ski${beatCount !== 1 ? "s" : ""}` : ""), test.completedAt && (() => {
+        const c = test.completedConditions;
+        const hasAir = c?.airTempF != null;
+        const hasSnow2 = c?.snowTempF != null;
+        const condStr = (() => {
+          const parts = [];
+          if (hasAir) parts.push(`air ${dispTemp(c.airTempF, useCelsius)}`);
+          if (hasSnow2) parts.push(`snow ${dispTemp(c.snowTempF, useCelsius)}`);
+          return parts.length ? ` \xB7 ${parts.join(" \xB7 ")}` : "";
+        })();
+        function pullFromForecast() {
+          const hourly = eventForecast?.hourly;
+          if (!hourly?.length) return null;
+          const ts = new Date(test.completedAt).getTime();
+          const closest = hourly.reduce((best, row) => {
+            const d = Math.abs(new Date(row.time).getTime() - ts);
+            return d < best.d ? { d, row } : best;
+          }, { d: Infinity, row: null }).row;
+          if (!closest || closest.tempF == null) return null;
+          return { airTempF: closest.tempF, _fromForecast: true };
+        }
+        async function fetchAndFill() {
+          if (!navigator.geolocation) return;
+          try {
+            const pos = await new Promise((res, rej) => {
+              const t = setTimeout(() => rej(new Error("GPS timed out")), 1e4);
+              navigator.geolocation.getCurrentPosition(
+                (p) => {
+                  clearTimeout(t);
+                  res(p);
+                },
+                (e) => {
+                  clearTimeout(t);
+                  rej(new Error("Location unavailable"));
+                },
+                { timeout: 9e3, maximumAge: 6e4 }
+              );
+            });
+            const { latitude: lat, longitude: lon } = pos.coords;
+            const label = await reverseGeocode(lat, lon) || `${lat.toFixed(3)},${lon.toFixed(3)}`;
+            const rows = await fetchForecast(lat, lon);
+            const fc = { fetchedAt: nowStr(), lat, lon, locationLabel: label, hourly: rows };
+            onUpdateEventForecast?.(fc);
+            const ts2 = new Date(test.completedAt).getTime();
+            const closest2 = rows.reduce((best, row) => {
+              const d = Math.abs(new Date(row.time).getTime() - ts2);
+              return d < best.d ? { d, row } : best;
+            }, { d: Infinity, row: null }).row;
+            if (closest2?.tempF != null) {
+              const existing = test.completedConditions || {};
+              upd({ completedConditions: { ...existing, airTempF: closest2.tempF, _fromForecast: true } });
+            }
+          } catch (e) {
+            console.warn("fetchAndFill:", e.message);
+          }
+        }
+        const fromExisting = !hasAir && !hasSnow2 ? pullFromForecast() : null;
+        if (fromExisting && !c) {
+          upd({ completedConditions: fromExisting });
+        }
+        const needsFetch = !hasAir && !hasSnow2 && !fromExisting && !!test.completedAt;
+        return /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 3 } }, "Completed ", fmtTime(test.completedAt), condStr, needsFetch && onUpdateEventForecast && /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            onClick: fetchAndFill,
+            className: "btn-ghost",
+            style: {
+              fontSize: 10,
+              padding: "2px 8px",
+              minHeight: 24,
+              marginLeft: 8,
+              verticalAlign: "middle"
+            }
+          },
+          "+ Fetch conditions"
+        ));
+      })()), comp != null && /* @__PURE__ */ React.createElement(RatingBadge, { score: comp, max: isGlide ? 10 : 20 })), !isBlind && winner.feelNotes && /* @__PURE__ */ React.createElement("div", { style: {
         fontSize: 12,
         color: "var(--ink-mid)",
         marginTop: 8,
@@ -7344,7 +7429,7 @@ Outcome: Eliminated`;
       }
     ));
   }
-  function SessionView({ session, onUpdate, onBack, vocab, onVocabAdd, useCelsius, onUnitToggle, teamCode, eventId, fleets = [], allEvents = [], onPromoteEventWeather, activeTestId, onSetActiveTest }) {
+  function SessionView({ session, onUpdate, onBack, vocab, onVocabAdd, useCelsius, onUnitToggle, teamCode, eventId, fleets = [], allEvents = [], onPromoteEventWeather, activeTestId, onSetActiveTest, eventForecast = null, onUpdateEventForecast }) {
     const [tab, setTab] = useState("tests");
     const setActiveTestId = onSetActiveTest || (() => {
     });
@@ -7379,7 +7464,9 @@ Outcome: Eliminated`;
           onUnitToggle,
           teamCode,
           eventId,
-          fleets
+          fleets,
+          eventForecast,
+          onUpdateEventForecast
         }
       );
     }
@@ -7668,7 +7755,9 @@ Outcome: Eliminated`;
           eventId: event.id,
           fleets,
           allEvents,
-          onPromoteEventWeather: (w) => onUpdate({ ...event, weather: { ...event.weather, ...w } })
+          onPromoteEventWeather: (w) => onUpdate({ ...event, weather: { ...event.weather, ...w } }),
+          eventForecast: event.forecast || null,
+          onUpdateEventForecast: (fc) => onUpdate({ ...event, forecast: fc })
         }
       );
     }
