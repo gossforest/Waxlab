@@ -1001,7 +1001,7 @@ var AppBundle = (() => {
       border: "1.5px solid var(--accent)",
       borderRadius: 10
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 12, color: "var(--accent)" } }, isNew ? "Add Product to Catalog" : "Edit Product"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { gridColumn: "1/-1" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Product name *"), /* @__PURE__ */ React.createElement(
-      AutocompleteInput,
+      ACI,
       {
         value: draft.product || "",
         onChange: (v) => upd({ product: v }),
@@ -1009,7 +1009,7 @@ var AppBundle = (() => {
         placeholder: "e.g. Swix HF7"
       }
     )), /* @__PURE__ */ React.createElement("div", { style: { gridColumn: "1/-1" } }, /* @__PURE__ */ React.createElement(Lbl, null, "Application"), /* @__PURE__ */ React.createElement(
-      AutocompleteInput,
+      ACI,
       {
         value: draft.application || "",
         onChange: (v) => upd({ application: v }),
