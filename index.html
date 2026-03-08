@@ -7631,9 +7631,8 @@ Outcome: Eliminated`;
       } }, r.kind))), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 12, color: "var(--ink-faint)" } }, r.testName), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, fmtTime(r.ts))))));
     })()))));
   }
-  function EventView({ event, onUpdate, onBack, onDelete, vocab, onVocabAdd, allEvents, useCelsius, onUnitToggle, teamCode, fleets = [], activeSessionId, onSetActiveSession, activeTestId, onSetActiveTest }) {
+  function EventView({ event, onUpdate, onBack, onRequestDelete, vocab, onVocabAdd, allEvents, useCelsius, onUnitToggle, teamCode, fleets = [], activeSessionId, onSetActiveSession, activeTestId, onSetActiveTest }) {
     const [tab, setTab] = useState("sessions");
-    const [deleteToast, setDeleteToast] = useState(false);
     const setActiveSessionId = onSetActiveSession || (() => {
     });
     function upd(patch) {
@@ -7683,7 +7682,7 @@ Outcome: Eliminated`;
     return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--paper)" } }, /* @__PURE__ */ React.createElement("div", { className: "view-header" }, /* @__PURE__ */ React.createElement(BackBtn, { onClick: onBack }), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", maxWidth: 200 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, event.name), event.location && /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 10, color: "var(--ink-faint)" } }, event.location)), /* @__PURE__ */ React.createElement(
       "button",
       {
-        onClick: () => setDeleteToast(true),
+        onClick: () => onRequestDelete(event.id, event.name),
         className: "btn-text",
         style: { color: "var(--red)", fontSize: 13 }
       },
@@ -7776,17 +7775,7 @@ Outcome: Eliminated`;
         rows: 3,
         placeholder: "How did the race wax perform? Athlete feedback, start order notes\u2026"
       }
-    )), tab === "raceday" && /* @__PURE__ */ React.createElement(RaceDaySummary, { event, useCelsius }), tab === "trend" && /* @__PURE__ */ React.createElement(ConditionsTrend, { events: [event], useCelsius }), tab === "compare" && /* @__PURE__ */ React.createElement(CrossEventComparison, { events: allEvents, useCelsius }), tab === "export" && /* @__PURE__ */ React.createElement(ExportPanel, { event }))), deleteToast && /* @__PURE__ */ React.createElement(
-      DeleteToast,
-      {
-        label: event.name,
-        onUndo: () => setDeleteToast(false),
-        onCommit: () => {
-          setDeleteToast(false);
-          onDelete(event.id);
-        }
-      }
-    ));
+    )), tab === "raceday" && /* @__PURE__ */ React.createElement(RaceDaySummary, { event, useCelsius }), tab === "trend" && /* @__PURE__ */ React.createElement(ConditionsTrend, { events: [event], useCelsius }), tab === "compare" && /* @__PURE__ */ React.createElement(CrossEventComparison, { events: allEvents, useCelsius }), tab === "export" && /* @__PURE__ */ React.createElement(ExportPanel, { event }))));
   }
   function GuidanceBanner({ storageKey, title, lines }) {
     const [visible, setVisible] = useState(() => !lsGet(storageKey));
@@ -8150,6 +8139,7 @@ Outcome: Eliminated`;
     const [catalog, setCatalog] = useState([]);
     const [view, setView] = useState("home");
     const [activeId, setActiveId] = useState(null);
+    const [pendingEventDelete, setPendingEventDelete] = useState(null);
     const [activeSessionId, setActiveSessionId] = useState(null);
     const [activeTestId, setActiveTestId] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -8442,7 +8432,7 @@ Outcome: Eliminated`;
       return /* @__PURE__ */ React.createElement("div", null, showOnboard && /* @__PURE__ */ React.createElement(OnboardingOverlay, { onDone: () => setShowOnboard(false) }), !online && /* @__PURE__ */ React.createElement("div", { className: "offline-bar" }, "\u26A0 Offline \u2014 changes saved locally"), bar, content);
     }
     if (view === "event" && activeEvent)
-      return wrap(/* @__PURE__ */ React.createElement(
+      return wrap(/* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
         EventView,
         {
           event: activeEvent,
@@ -8456,7 +8446,7 @@ Outcome: Eliminated`;
           onSetActiveSession: setActiveSessionId,
           activeTestId,
           onSetActiveTest: setActiveTestId,
-          onDelete: doDeleteEvent,
+          onRequestDelete: (id, name) => setPendingEventDelete({ id, name }),
           vocab,
           onVocabAdd: addVocab,
           allEvents: allEventsForPrediction,
@@ -8465,7 +8455,18 @@ Outcome: Eliminated`;
           teamCode,
           fleets
         }
-      ));
+      ), pendingEventDelete && /* @__PURE__ */ React.createElement(
+        DeleteToast,
+        {
+          label: pendingEventDelete.name,
+          onUndo: () => setPendingEventDelete(null),
+          onCommit: () => {
+            const id = pendingEventDelete.id;
+            setPendingEventDelete(null);
+            doDeleteEvent(id);
+          }
+        }
+      )));
     if (view === "fleets")
       return wrap(/* @__PURE__ */ React.createElement(
         FleetRegistryView,
