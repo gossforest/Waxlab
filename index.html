@@ -3379,6 +3379,288 @@ Outcome: Eliminated`;
       "Delete this comparison"
     )));
   }
+  function GlideOutResults({ test, onUpdate, isBlind, useCelsius }) {
+    const comparisons = test.glideOutRuns || [];
+    const activeSkis = (test.skis || []).filter((s) => s.standing !== "Eliminated");
+    const hasWinner = test.skis?.some((s) => s.standing === "Winner");
+    const results = calcGlideOutResults(comparisons, test.skis);
+    const completedComps = comparisons.filter((c) => c.legA?.cmAhead != null && c.legB?.cmAhead != null);
+    const completedCount = completedComps.length;
+    const n = activeSkis.length;
+    const totalPairs = n * (n - 1) / 2;
+    const maxGap = Math.max(...results.map((r) => r.cmGap), 1);
+    const BAR_W = 220;
+    if (results.length === 0) {
+      return /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", fontSize: 13, paddingTop: 16, textAlign: "center" } }, "No completed comparisons yet. Enter measurements in the Glide Out tab.");
+    }
+    function BarChart() {
+      return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        marginBottom: 6
+      } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, "Speed Ranking"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, completedCount, "/", totalPairs > 0 ? totalPairs : "?", " pair", completedCount !== 1 ? "s" : "", " complete")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", marginBottom: 4, paddingLeft: 72 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 9, color: "var(--ink-faint)" } }, "\u2190 faster"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 9, color: "var(--ink-faint)", marginLeft: "auto" } }, "slower \u2192")), /* @__PURE__ */ React.createElement("div", { style: {
+        background: "var(--paper-2)",
+        borderRadius: 8,
+        overflow: "hidden",
+        border: "1.5px solid var(--rule)"
+      } }, results.map((r, i) => {
+        const barPct = maxGap > 0 ? r.cmGap / maxGap : 0;
+        const barW = Math.round(barPct * BAR_W);
+        const isWin = i === 0;
+        const label = isBlind ? r.skiId : r.product ? `${r.skiId} \u2014 ${r.product}` : r.skiId;
+        return /* @__PURE__ */ React.createElement("div", { key: r.skiId, style: {
+          padding: "8px 12px",
+          borderBottom: i < results.length - 1 ? "1px solid var(--rule)" : "none",
+          background: isWin ? "rgba(52,199,89,0.06)" : "transparent"
+        } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 5, gap: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 11,
+          color: "var(--ink-faint)",
+          width: 18,
+          flexShrink: 0,
+          fontWeight: 700
+        } }, "#", i + 1), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 13,
+          fontWeight: 700,
+          color: isWin ? "var(--green)" : "var(--ink)",
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap"
+        } }, label), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 14,
+          fontWeight: 800,
+          color: isWin ? "var(--green)" : "var(--ink-mid)",
+          flexShrink: 0
+        } }, isWin ? "0 cm" : `+${r.cmGap.toFixed(1)} cm`)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, paddingLeft: 24 } }, /* @__PURE__ */ React.createElement("div", { style: {
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: isWin ? "var(--green)" : "var(--rule)",
+          flexShrink: 0
+        } }), /* @__PURE__ */ React.createElement("div", { style: {
+          flex: 1,
+          height: 10,
+          background: "var(--paper-3)",
+          borderRadius: 5,
+          overflow: "hidden",
+          position: "relative"
+        } }, /* @__PURE__ */ React.createElement("div", { style: {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 2,
+          background: "var(--green)",
+          opacity: 0.5
+        } }), barW > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: barW,
+          borderRadius: "0 5px 5px 0",
+          background: isWin ? "var(--green)" : "linear-gradient(90deg, rgba(52,199,89,0.3) 0%, rgba(255,69,58,0.5) 100%)",
+          opacity: isWin ? 0.7 : 0.8
+        } })), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 10,
+          color: "var(--ink-faint)",
+          width: 32,
+          textAlign: "right",
+          flexShrink: 0
+        } }, r.compCount, "\u2713")));
+      })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, marginTop: 6, paddingLeft: 4, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-faint)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 10, height: 10, borderRadius: "50%", background: "var(--green)" } }), "Winner baseline (0 cm)"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-faint)" } }, "Bar = cm behind winner \xB7 \u2713 = comparisons completed")));
+    }
+    function MatchupMatrix() {
+      if (completedComps.length === 0) return null;
+      const ids = results.map((r) => r.skiId);
+      const matchMap = {};
+      completedComps.forEach((c) => {
+        const netA = (c.legA.cmAhead - c.legB.cmAhead) / 2;
+        const key = [c.skiA, c.skiB].sort().join("|");
+        if (!matchMap[key]) matchMap[key] = [];
+        matchMap[key].push({ skiA: c.skiA, skiB: c.skiB, netA });
+      });
+      const avgMap = {};
+      Object.entries(matchMap).forEach(([key, runs]) => {
+        const avgNet = runs.reduce((s, r) => s + r.netA, 0) / runs.length;
+        const [a, b] = key.split("|");
+        avgMap[key] = { a, b, avgNet };
+      });
+      return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Head-to-Head Results"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Each cell shows which ski was faster and by how many cm net. Green = row ski won \xB7 Red = row ski lost."), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 12 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: {
+        padding: "6px 10px",
+        textAlign: "left",
+        fontWeight: 700,
+        fontSize: 11,
+        color: "var(--ink-faint)",
+        borderBottom: "2px solid var(--rule)"
+      } }, "vs \u2192"), ids.map((id) => /* @__PURE__ */ React.createElement(
+        "th",
+        {
+          key: id,
+          style: {
+            padding: "6px 8px",
+            textAlign: "center",
+            fontWeight: 700,
+            fontSize: 11,
+            color: "var(--ink-faint)",
+            borderBottom: "2px solid var(--rule)"
+          },
+          className: "mono"
+        },
+        id
+      )))), /* @__PURE__ */ React.createElement("tbody", null, ids.map((rowId) => /* @__PURE__ */ React.createElement("tr", { key: rowId, style: { borderBottom: "1px solid var(--rule)" } }, /* @__PURE__ */ React.createElement(
+        "td",
+        {
+          style: { padding: "7px 10px", fontWeight: 700, fontSize: 12 },
+          className: "mono"
+        },
+        rowId
+      ), ids.map((colId) => {
+        if (rowId === colId) {
+          return /* @__PURE__ */ React.createElement("td", { key: colId, style: {
+            padding: "7px 8px",
+            background: "var(--paper-3)",
+            textAlign: "center",
+            color: "var(--ink-faint)",
+            fontSize: 16
+          } }, "\u2014");
+        }
+        const key = [rowId, colId].sort().join("|");
+        const m = avgMap[key];
+        if (!m) {
+          return /* @__PURE__ */ React.createElement("td", { key: colId, style: {
+            padding: "7px 8px",
+            textAlign: "center",
+            color: "var(--ink-faint)",
+            fontSize: 11
+          } }, "?");
+        }
+        const netRow = m.a === rowId ? m.avgNet : -m.avgNet;
+        const won = netRow > 0.4;
+        const lost = netRow < -0.4;
+        const even = !won && !lost;
+        return /* @__PURE__ */ React.createElement("td", { key: colId, style: {
+          padding: "7px 8px",
+          textAlign: "center",
+          background: won ? "rgba(52,199,89,0.12)" : lost ? "rgba(255,69,58,0.10)" : "rgba(255,159,10,0.10)"
+        } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 12,
+          fontWeight: 700,
+          color: won ? "var(--green)" : lost ? "var(--red)" : "var(--amber)"
+        } }, even ? "~" : (won ? "+" : "") + netRow.toFixed(1)), !even && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--ink-faint)" } }, "cm"));
+      })))))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 6 } }, "+ = row ski is faster \xB7 \u2212 = row ski is slower \xB7 ~ = no meaningful difference \xB7 ? = not yet tested"));
+    }
+    function ComparisonBreakdown() {
+      if (completedComps.length === 0) return null;
+      return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Lbl, null, "How Each Comparison Was Measured"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Each comparison uses two runs. The skiers swap skis between runs to cancel out skier ability differences. The net gap = (Leg A \u2212 Leg B) \xF7 2."), completedComps.map((c, i) => {
+        const netA = (c.legA.cmAhead - c.legB.cmAhead) / 2;
+        const gap = Math.abs(netA);
+        const faster = gap < 0.5 ? null : netA > 0 ? c.skiA : c.skiB;
+        const skiLabel = (id) => {
+          if (isBlind) return id;
+          const s = (test.skis || []).find((x) => x.id === id);
+          return s?.product ? `${id} (${s.product})` : id;
+        };
+        const legMax = Math.max(Math.abs(c.legA.cmAhead), Math.abs(c.legB.cmAhead), 1);
+        const legAW = Math.max(0, Math.round(c.legA.cmAhead / legMax * 80));
+        const legBW = Math.max(0, Math.round(c.legB.cmAhead / legMax * 80));
+        return /* @__PURE__ */ React.createElement("div", { key: c.id, style: {
+          background: "var(--paper-2)",
+          borderRadius: 8,
+          border: "1.5px solid var(--rule)",
+          marginBottom: 8,
+          padding: "10px 12px"
+        } }, /* @__PURE__ */ React.createElement("div", { style: {
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8
+        } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: 13 } }, c.label || `Comparison ${i + 1}`), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 11,
+          color: "var(--ink-faint)",
+          marginLeft: 8
+        } }, c.skiA, " vs ", c.skiB)), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 13,
+          fontWeight: 800,
+          color: faster ? "var(--green)" : "var(--amber)"
+        } }, faster ? `${faster} +${gap.toFixed(1)} cm` : "Even")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--paper-3)", borderRadius: 6, padding: "8px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: {
+          fontSize: 10,
+          fontWeight: 700,
+          color: "var(--ink-faint)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          marginBottom: 4
+        } }, "Leg A \u2014 ", c.skiA, " leads"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
+          fontSize: 18,
+          fontWeight: 800,
+          color: "var(--ink)",
+          marginBottom: 4
+        } }, c.legA.cmAhead >= 0 ? "+" : "", c.legA.cmAhead, " cm"), /* @__PURE__ */ React.createElement("div", { style: { height: 6, background: "var(--rule)", borderRadius: 3, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+          height: "100%",
+          width: `${legAW}%`,
+          minWidth: 2,
+          background: "var(--blue)",
+          borderRadius: 3
+        } })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 3 } }, skiLabel(c.skiA), " ahead at finish")), /* @__PURE__ */ React.createElement("div", { style: { background: "var(--paper-3)", borderRadius: 6, padding: "8px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: {
+          fontSize: 10,
+          fontWeight: 700,
+          color: "var(--ink-faint)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          marginBottom: 4
+        } }, "Leg B \u2014 ", c.skiB, " leads"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
+          fontSize: 18,
+          fontWeight: 800,
+          color: "var(--ink)",
+          marginBottom: 4
+        } }, c.legB.cmAhead >= 0 ? "+" : "", c.legB.cmAhead, " cm"), /* @__PURE__ */ React.createElement("div", { style: { height: 6, background: "var(--rule)", borderRadius: 3, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+          height: "100%",
+          width: `${legBW}%`,
+          minWidth: 2,
+          background: "var(--blue)",
+          borderRadius: 3
+        } })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 3 } }, skiLabel(c.skiB), " ahead at finish"))), /* @__PURE__ */ React.createElement("div", { style: {
+          background: "var(--paper)",
+          borderRadius: 6,
+          padding: "7px 10px",
+          border: "1px solid var(--rule)"
+        } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, "Net = (", c.legA.cmAhead, " \u2212 ", c.legB.cmAhead, ") \xF7 2 = ", netA.toFixed(1), " cm \xA0\u2192\xA0"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
+          fontSize: 11,
+          color: faster ? "var(--green)" : "var(--amber)",
+          fontWeight: 700
+        } }, faster ? `${faster} faster by ${gap.toFixed(1)} cm` : "No meaningful difference")), c.testers && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 5 } }, "Testers: ", c.testers));
+      }));
+    }
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(BarChart, null), /* @__PURE__ */ React.createElement(MatchupMatrix, null), /* @__PURE__ */ React.createElement(ComparisonBreakdown, null), completedCount >= 1 && !hasWinner && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn",
+        style: { width: "100%", marginTop: 4, fontSize: 13 },
+        onClick: () => {
+          const lastSnow = (test.snowTemps || []).slice(-1)[0]?.tempF ?? null;
+          const lastAir = (test.airTemps || []).slice(-1)[0]?.tempF ?? null;
+          const completedConditions = lastSnow != null || lastAir != null ? {
+            ...lastSnow != null ? { snowTempF: lastSnow } : {},
+            ...lastAir != null ? { airTempF: lastAir } : {}
+          } : null;
+          onUpdate({
+            ...test,
+            completedAt: nowStr(),
+            ...completedConditions ? { completedConditions } : {},
+            skis: (test.skis || []).map((s) => ({
+              ...s,
+              standing: s.id === results[0].skiId ? "Winner" : "Eliminated"
+            }))
+          });
+        }
+      },
+      "Declare ",
+      results[0].skiId,
+      " Winner"
+    ));
+  }
   function GlideOutTab({ test, onUpdate, isBlind }) {
     const comparisons = test.glideOutRuns || [];
     const activeSkis = (test.skis || []).filter((s) => s.standing !== "Eliminated");
@@ -3440,310 +3722,7 @@ Outcome: Eliminated`;
       fontSize: 12,
       color: "var(--ink-mid)",
       lineHeight: 1.6
-    } }, /* @__PURE__ */ React.createElement("strong", null, "Protocol:"), " 1\u20133 double poles from start, then tuck. Lead partner holds second partner to match speed, releases at the release point. Both hold tuck. Measure cm gap at measurement point. Swap skis and repeat the same run. Net = (leg A cm \u2212 leg B cm) \xF7 2. Reported as winner 0 cm, others +Ncm."), results.length > 0 && (() => {
-      const completedComps = comparisons.filter((c) => c.legA?.cmAhead != null && c.legB?.cmAhead != null);
-      const maxGap = Math.max(...results.map((r) => r.cmGap), 1);
-      const BAR_W = 220;
-      function BarChart() {
-        return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: {
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          marginBottom: 6
-        } }, /* @__PURE__ */ React.createElement(Lbl, { style: { marginBottom: 0 } }, "Speed Ranking"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, completedCount, "/", totalPairs > 0 ? totalPairs : "?", " pair", completedCount !== 1 ? "s" : "", " complete")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", marginBottom: 4, paddingLeft: 72 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 9, color: "var(--ink-faint)" } }, "\u2190 faster"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 9, color: "var(--ink-faint)", marginLeft: "auto" } }, "slower \u2192")), /* @__PURE__ */ React.createElement("div", { style: {
-          background: "var(--paper-2)",
-          borderRadius: 8,
-          overflow: "hidden",
-          border: "1.5px solid var(--rule)"
-        } }, results.map((r, i) => {
-          const barPct = maxGap > 0 ? r.cmGap / maxGap : 0;
-          const barW = Math.round(barPct * BAR_W);
-          const isWin = i === 0;
-          const label = isBlind ? r.skiId : r.product ? `${r.skiId} \u2014 ${r.product}` : r.skiId;
-          return /* @__PURE__ */ React.createElement("div", { key: r.skiId, style: {
-            padding: "8px 12px",
-            borderBottom: i < results.length - 1 ? "1px solid var(--rule)" : "none",
-            background: isWin ? "rgba(52,199,89,0.06)" : "transparent"
-          } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 5, gap: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-            fontSize: 11,
-            color: "var(--ink-faint)",
-            width: 18,
-            flexShrink: 0,
-            fontWeight: 700
-          } }, "#", i + 1), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-            fontSize: 13,
-            fontWeight: 700,
-            color: isWin ? "var(--green)" : "var(--ink)",
-            flex: 1,
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap"
-          } }, label), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-            fontSize: 14,
-            fontWeight: 800,
-            color: isWin ? "var(--green)" : "var(--ink-mid)",
-            flexShrink: 0
-          } }, isWin ? "0 cm" : `+${r.cmGap.toFixed(1)} cm`)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, paddingLeft: 24 } }, /* @__PURE__ */ React.createElement("div", { style: {
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: isWin ? "var(--green)" : "var(--rule)",
-            flexShrink: 0
-          } }), /* @__PURE__ */ React.createElement("div", { style: {
-            flex: 1,
-            height: 10,
-            background: "var(--paper-3)",
-            borderRadius: 5,
-            overflow: "hidden",
-            position: "relative"
-          } }, /* @__PURE__ */ React.createElement("div", { style: {
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 2,
-            background: "var(--green)",
-            opacity: 0.5
-          } }), barW > 0 && /* @__PURE__ */ React.createElement("div", { style: {
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: barW,
-            borderRadius: "0 5px 5px 0",
-            background: isWin ? "var(--green)" : `linear-gradient(90deg, rgba(52,199,89,0.3) 0%, rgba(255,69,58,0.5) 100%)`,
-            opacity: isWin ? 0.7 : 0.8
-          } })), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-            fontSize: 10,
-            color: "var(--ink-faint)",
-            width: 32,
-            textAlign: "right",
-            flexShrink: 0
-          } }, r.compCount, "\u2713")));
-        })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, marginTop: 6, paddingLeft: 4, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-faint)", display: "flex", alignItems: "center", gap: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 10, height: 10, borderRadius: "50%", background: "var(--green)" } }), "Winner baseline (0 cm)"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10, color: "var(--ink-faint)" } }, "Bar = cm behind winner \xB7 \u2713 = comparisons completed")));
-      }
-      function MatchupMatrix() {
-        if (completedComps.length === 0) return null;
-        const ids = results.map((r) => r.skiId);
-        const matchMap = {};
-        completedComps.forEach((c) => {
-          const netA = (c.legA.cmAhead - c.legB.cmAhead) / 2;
-          const key = [c.skiA, c.skiB].sort().join("|");
-          if (!matchMap[key]) matchMap[key] = [];
-          matchMap[key].push({ skiA: c.skiA, skiB: c.skiB, netA });
-        });
-        const avgMap = {};
-        Object.entries(matchMap).forEach(([key, runs]) => {
-          const avgNet = runs.reduce((s, r) => s + r.netA, 0) / runs.length;
-          const [a, b] = key.split("|");
-          avgMap[key] = { a, b, avgNet };
-        });
-        return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Lbl, null, "Head-to-Head Results"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Each cell shows which ski was faster and by how many cm net. Green = row ski won \xB7 Red = row ski lost."), /* @__PURE__ */ React.createElement("div", { style: { overflowX: "auto" } }, /* @__PURE__ */ React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 12 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: {
-          padding: "6px 10px",
-          textAlign: "left",
-          fontWeight: 700,
-          fontSize: 11,
-          color: "var(--ink-faint)",
-          borderBottom: "2px solid var(--rule)"
-        } }, "vs \u2192"), ids.map((id) => /* @__PURE__ */ React.createElement(
-          "th",
-          {
-            key: id,
-            style: {
-              padding: "6px 8px",
-              textAlign: "center",
-              fontWeight: 700,
-              fontSize: 11,
-              color: "var(--ink-faint)",
-              borderBottom: "2px solid var(--rule)"
-            },
-            className: "mono"
-          },
-          id
-        )))), /* @__PURE__ */ React.createElement("tbody", null, ids.map((rowId, ri) => /* @__PURE__ */ React.createElement(
-          "tr",
-          {
-            key: rowId,
-            style: { borderBottom: "1px solid var(--rule)" }
-          },
-          /* @__PURE__ */ React.createElement(
-            "td",
-            {
-              style: { padding: "7px 10px", fontWeight: 700, fontSize: 12 },
-              className: "mono"
-            },
-            rowId
-          ),
-          ids.map((colId, ci) => {
-            if (rowId === colId) {
-              return /* @__PURE__ */ React.createElement("td", { key: colId, style: {
-                padding: "7px 8px",
-                background: "var(--paper-3)",
-                textAlign: "center",
-                color: "var(--ink-faint)",
-                fontSize: 16
-              } }, "\u2014");
-            }
-            const key = [rowId, colId].sort().join("|");
-            const m = avgMap[key];
-            if (!m) {
-              return /* @__PURE__ */ React.createElement("td", { key: colId, style: {
-                padding: "7px 8px",
-                textAlign: "center",
-                color: "var(--ink-faint)",
-                fontSize: 11
-              } }, "?");
-            }
-            const netRow = m.a === rowId ? m.avgNet : -m.avgNet;
-            const won = netRow > 0.4;
-            const lost = netRow < -0.4;
-            const even = !won && !lost;
-            return /* @__PURE__ */ React.createElement("td", { key: colId, style: {
-              padding: "7px 8px",
-              textAlign: "center",
-              background: won ? "rgba(52,199,89,0.12)" : lost ? "rgba(255,69,58,0.10)" : "rgba(255,159,10,0.10)"
-            } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-              fontSize: 12,
-              fontWeight: 700,
-              color: won ? "var(--green)" : lost ? "var(--red)" : "var(--amber)"
-            } }, even ? "~" : (won ? "+" : "") + netRow.toFixed(1)), !even && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--ink-faint)" } }, "cm"));
-          })
-        ))))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 6 } }, "+ = row ski is faster \xB7 \u2212 = row ski is slower \xB7 ~ = no meaningful difference \xB7 ? = not yet tested"));
-      }
-      function ComparisonBreakdown() {
-        if (completedComps.length === 0) return null;
-        return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(Lbl, null, "How Each Comparison Was Measured"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--ink-faint)", marginBottom: 8, lineHeight: 1.5 } }, "Each comparison uses two runs. The skiers swap skis between runs to cancel out skier ability differences. The net gap = (Leg A \u2212 Leg B) \xF7 2."), completedComps.map((c, i) => {
-          const netA = (c.legA.cmAhead - c.legB.cmAhead) / 2;
-          const gap = Math.abs(netA);
-          const faster = gap < 0.5 ? null : netA > 0 ? c.skiA : c.skiB;
-          const slower = faster ? faster === c.skiA ? c.skiB : c.skiA : null;
-          const skiLabel = (id) => {
-            if (isBlind) return id;
-            const s = (test.skis || []).find((x) => x.id === id);
-            return s?.product ? `${id} (${s.product})` : id;
-          };
-          const legMax = Math.max(Math.abs(c.legA.cmAhead), Math.abs(c.legB.cmAhead), 1);
-          const legAW = Math.max(0, Math.round(c.legA.cmAhead / legMax * 80));
-          const legBW = Math.max(0, Math.round(c.legB.cmAhead / legMax * 80));
-          return /* @__PURE__ */ React.createElement("div", { key: c.id, style: {
-            background: "var(--paper-2)",
-            borderRadius: 8,
-            border: "1.5px solid var(--rule)",
-            marginBottom: 8,
-            padding: "10px 12px"
-          } }, /* @__PURE__ */ React.createElement("div", { style: {
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 8
-          } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: 13 } }, c.label || `Comparison ${i + 1}`), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-            fontSize: 11,
-            color: "var(--ink-faint)",
-            marginLeft: 8
-          } }, c.skiA, " vs ", c.skiB)), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-            fontSize: 13,
-            fontWeight: 800,
-            color: faster ? "var(--green)" : "var(--amber)"
-          } }, faster ? `${faster} +${gap.toFixed(1)} cm` : "Even")), /* @__PURE__ */ React.createElement("div", { style: {
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-            marginBottom: 8
-          } }, /* @__PURE__ */ React.createElement("div", { style: {
-            background: "var(--paper-3)",
-            borderRadius: 6,
-            padding: "8px 10px"
-          } }, /* @__PURE__ */ React.createElement("div", { style: {
-            fontSize: 10,
-            fontWeight: 700,
-            color: "var(--ink-faint)",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            marginBottom: 4
-          } }, "Leg A \u2014 ", c.skiA, " leads"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
-            fontSize: 18,
-            fontWeight: 800,
-            color: "var(--ink)",
-            marginBottom: 4
-          } }, c.legA.cmAhead >= 0 ? "+" : "", c.legA.cmAhead, " cm"), /* @__PURE__ */ React.createElement("div", { style: {
-            height: 6,
-            background: "var(--rule)",
-            borderRadius: 3,
-            overflow: "hidden"
-          } }, /* @__PURE__ */ React.createElement("div", { style: {
-            height: "100%",
-            width: `${legAW}%`,
-            minWidth: 2,
-            background: "var(--blue)",
-            borderRadius: 3
-          } })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 3 } }, skiLabel(c.skiA), " ahead at finish")), /* @__PURE__ */ React.createElement("div", { style: {
-            background: "var(--paper-3)",
-            borderRadius: 6,
-            padding: "8px 10px"
-          } }, /* @__PURE__ */ React.createElement("div", { style: {
-            fontSize: 10,
-            fontWeight: 700,
-            color: "var(--ink-faint)",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            marginBottom: 4
-          } }, "Leg B \u2014 ", c.skiB, " leads"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: {
-            fontSize: 18,
-            fontWeight: 800,
-            color: "var(--ink)",
-            marginBottom: 4
-          } }, c.legB.cmAhead >= 0 ? "+" : "", c.legB.cmAhead, " cm"), /* @__PURE__ */ React.createElement("div", { style: {
-            height: 6,
-            background: "var(--rule)",
-            borderRadius: 3,
-            overflow: "hidden"
-          } }, /* @__PURE__ */ React.createElement("div", { style: {
-            height: "100%",
-            width: `${legBW}%`,
-            minWidth: 2,
-            background: "var(--blue)",
-            borderRadius: 3
-          } })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 3 } }, skiLabel(c.skiB), " ahead at finish"))), /* @__PURE__ */ React.createElement("div", { style: {
-            background: "var(--paper)",
-            borderRadius: 6,
-            padding: "7px 10px",
-            border: "1px solid var(--rule)"
-          } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--ink-faint)" } }, "Net = (", c.legA.cmAhead, " \u2212 ", c.legB.cmAhead, ") \xF7 2 = ", netA.toFixed(1), " cm \xA0\u2192\xA0"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: {
-            fontSize: 11,
-            color: faster ? "var(--green)" : "var(--amber)",
-            fontWeight: 700
-          } }, faster ? `${faster} faster by ${gap.toFixed(1)} cm` : "No meaningful difference")), c.testers && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--ink-faint)", marginTop: 5 } }, "Testers: ", c.testers));
-        }));
-      }
-      return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16 } }, /* @__PURE__ */ React.createElement(BarChart, null), /* @__PURE__ */ React.createElement(MatchupMatrix, null), /* @__PURE__ */ React.createElement(ComparisonBreakdown, null), completedCount >= 1 && !hasWinner && /* @__PURE__ */ React.createElement(
-        "button",
-        {
-          className: "btn",
-          style: { width: "100%", marginTop: 4, fontSize: 13 },
-          onClick: () => {
-            const lastSnow = (test.snowTemps || []).slice(-1)[0]?.tempF ?? null;
-            const lastAir = (test.airTemps || []).slice(-1)[0]?.tempF ?? null;
-            const completedConditions = lastSnow != null || lastAir != null ? {
-              ...lastSnow != null ? { snowTempF: lastSnow } : {},
-              ...lastAir != null ? { airTempF: lastAir } : {}
-            } : null;
-            onUpdate({
-              ...test,
-              completedAt: nowStr(),
-              ...completedConditions ? { completedConditions } : {},
-              skis: (test.skis || []).map((s) => ({
-                ...s,
-                standing: s.id === results[0].skiId ? "Winner" : "Eliminated"
-              }))
-            });
-          }
-        },
-        "Declare ",
-        results[0].skiId,
-        " Winner"
-      ));
-    })(), !hasWinner && completedCount > 0 && completedCount >= totalPairs && totalPairs > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+    } }, /* @__PURE__ */ React.createElement("strong", null, "Protocol:"), " 1\u20133 double poles from start, then tuck. Lead partner holds second partner to match speed, releases at the release point. Both hold tuck. Measure cm gap at measurement point. Swap skis and repeat the same run. Net = (leg A cm \u2212 leg B cm) \xF7 2. Reported as winner 0 cm, others +Ncm."), !hasWinner && completedCount > 0 && completedCount >= totalPairs && totalPairs > 0 && /* @__PURE__ */ React.createElement("div", { style: {
       padding: "10px 14px",
       background: "rgba(52,199,89,0.08)",
       borderRadius: 8,
@@ -7484,7 +7463,7 @@ Outcome: Eliminated`;
         placeholder: "Iron temp, layers\u2026",
         style: { marginBottom: 8 }
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: addSki, style: { flex: 1 } }, "Add to Fleet"), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", onClick: addSki, style: { flex: 1 } }, "Add Another")))), tab === "results" && /* @__PURE__ */ React.createElement("div", null, !test.skis?.length ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", fontSize: 14, paddingTop: 16 } }, "No skis registered.") : /* @__PURE__ */ React.createElement(React.Fragment, null, (test.skis || []).sort((a, b) => {
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("button", { className: "btn", onClick: addSki, style: { flex: 1 } }, "Add to Fleet"), /* @__PURE__ */ React.createElement("button", { className: "btn-ghost", onClick: addSki, style: { flex: 1 } }, "Add Another")))), tab === "results" && /* @__PURE__ */ React.createElement("div", null, isGlideOut ? /* @__PURE__ */ React.createElement(GlideOutResults, { test, onUpdate, isBlind, useCelsius }) : !test.skis?.length ? /* @__PURE__ */ React.createElement("div", { style: { color: "var(--ink-faint)", fontSize: 14, paddingTop: 16 } }, "No skis registered.") : /* @__PURE__ */ React.createElement(React.Fragment, null, (test.skis || []).sort((a, b) => {
       const ord = { Winner: 0, "Runner-Up": 1, Tied: 2, Active: 3, Eliminated: 4 };
       return (ord[a.standing] ?? 2) - (ord[b.standing] ?? 2);
     }).map((ski) => /* @__PURE__ */ React.createElement(
