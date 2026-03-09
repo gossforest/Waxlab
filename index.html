@@ -3383,19 +3383,24 @@ Outcome: Eliminated`;
     const comparisons = test.glideOutRuns || [];
     const activeSkis = (test.skis || []).filter((s) => s.standing !== "Eliminated");
     const hasWinner = test.skis?.some((s) => s.standing === "Winner");
-    const suggested = suggestNextComparison(comparisons, activeSkis);
-    const [skiA, setSkiA] = useState(suggested?.skiA || "");
-    const [skiB, setSkiB] = useState(suggested?.skiB || "");
+    const [skiA, setSkiA] = useState("");
+    const [skiB, setSkiB] = useState("");
     const [testers, setTesters] = useState("");
-    const prevSug = useRef(null);
-    const newSug = suggestNextComparison(comparisons, activeSkis);
-    if (newSug && JSON.stringify(newSug) !== JSON.stringify(prevSug.current)) {
-      prevSug.current = newSug;
-      if (!skiA && !skiB) {
-        setSkiA(newSug.skiA);
-        setSkiB(newSug.skiB);
+    const suggested = suggestNextComparison(comparisons, activeSkis);
+    useEffect(() => {
+      const sug = suggestNextComparison(comparisons, activeSkis);
+      if (sug) {
+        setSkiA(sug.skiA);
+        setSkiB(sug.skiB);
+      } else {
+        setSkiA("");
+        setSkiB("");
       }
-    }
+    }, [
+      comparisons.length,
+      activeSkis.length,
+      comparisons.filter((c) => c.legA?.cmAhead != null && c.legB?.cmAhead != null).length
+    ]);
     function upd(patch) {
       onUpdate({ ...test, ...patch });
     }
@@ -3414,11 +3419,7 @@ Outcome: Eliminated`;
         ts: nowStr()
       };
       upd({ glideOutRuns: [...comparisons, comp] });
-      const next = suggestNextComparison([...comparisons, comp], activeSkis);
-      if (next) {
-        setSkiA(next.skiA);
-        setSkiB(next.skiB);
-      }
+      setTesters("");
     }
     function updateComp(id, patch) {
       upd({ glideOutRuns: comparisons.map((c) => c.id === id ? patch : c) });
