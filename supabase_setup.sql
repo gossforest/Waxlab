@@ -112,6 +112,34 @@ create policy "Public update" on waxlab_fleets for update using (true);
 alter publication supabase_realtime add table waxlab_fleets;
 
 
+-- ─── ANALYTICS ───────────────────────────────────────────────────────────────
+-- Anonymous usage telemetry. No PII — only team_code + device_id (random UUID).
+-- The ADMIN team code in the app reads this table for the dashboard.
+
+create table if not exists waxlab_analytics (
+  id          bigserial primary key,
+  device_id   text not null,
+  team_code   text not null,
+  event_type  text not null,
+  platform    text,
+  payload     jsonb default '{}',
+  ts          timestamptz not null default now()
+);
+
+create index if not exists waxlab_analytics_team_code_idx on waxlab_analytics (team_code);
+create index if not exists waxlab_analytics_ts_idx        on waxlab_analytics (ts);
+create index if not exists waxlab_analytics_event_type_idx on waxlab_analytics (event_type);
+
+alter table waxlab_analytics enable row level security;
+
+-- Anyone can insert (fire a ping) but NOT read — only the admin dashboard reads
+create policy "Public insert" on waxlab_analytics for insert with check (true);
+
+-- Read is unrestricted so the admin dashboard (using anon key) can query it.
+-- If you want to restrict admin access, replace this with a secret team_code check.
+create policy "Public read"   on waxlab_analytics for select using (true);
+
+
 -- ─── PHOTO STORAGE BUCKET ────────────────────────────────────────────────────
 -- Run this separately in the Supabase Dashboard → Storage, or via the SQL editor.
 -- The SQL API for storage buckets requires the storage schema:
